@@ -590,6 +590,22 @@ async def on_message(message):
                 # GET /results/{replayId}
     await client.process_commands(message)
 
+@client.event
+async def clear_channel(channel_id):
+    channel = client.get_channel(channel_id)
+
+    await channel.purge(limit=100)
+
+
+async def update_leaderboard():
+    await clear_channel(leaderboard_channel_id)
+    await leaderboard()
+
+
+@client.command()
+async def up_leaderboard(ctx):
+    await update_leaderboard()
+
 
 async def leaderboard():
     channel = client.get_channel(leaderboard_channel_id)
