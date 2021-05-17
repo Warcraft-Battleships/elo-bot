@@ -90,13 +90,13 @@ async def help(ctx, *command):
         if command == "stats":
             add_text = "**?stats** <player>\n\n" \
                        "Display the stats from the  current ranked season\n" \
-                       "-**<player>** (optional) - picked player"
+                       "**<player>** (optional) - picked player"
             embed = discord.Embed(title="Stats", description=add_text, color=0x00ffad)
             await ctx.send(embed=embed)
         if command == "allstats":
             add_text = "**?allstats** <player>\n\n" \
                        "Display all the stats for the given player from elo-eligible replays\n" \
-                       "-**<player>** (optional) - picked player"
+                       "**<player>** (optional) - picked player"
             embed = discord.Embed(title="Allstats", description=add_text, color=0x00ffad)
             await ctx.send(embed=embed)
 
