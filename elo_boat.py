@@ -110,7 +110,8 @@ async def help(ctx, *command):
                        "**elo**: displays the elo\n**balance**: makes two teams\n**change_alias** updates alias\n" \
                        "**delete_account**: remove your account\n**stats**: display stats of the current season\n" \
                        "**allstats**: shows full stats\n\n(*admin only*)\n**new_season**: starts a new season\n" \
-                       "**maps**: returns info about the map file\n**add_map**: updates the current map file"  # \nedit (wip)\nstats\nbalance\ndraft"
+                       "**maps**: returns info about the map file\n**add_map**: updates the current map file"
+        # TODO edit (wip) stats balance draft"
         embed = discord.Embed(title="Commands", description=command_text, color=0x00ffad)
         await ctx.send(embed=embed)
 
@@ -136,7 +137,7 @@ async def elo(ctx):
                                    " Only 3v3,4v4,5v5 and 6v6 games on the eligible map files will be parsed.")
             return
         current_elo = disp_elo(row[1], row[2])
-        mmr = round(50 * row[1])
+        #  mmr = round(50 * row[1])  #  not displayed
         await ctx.channel.send(f"Player **{row[0]}** has a current elo of **{current_elo}**")
     else:
         await ctx.channel.send(f"Player **{ctx.author.name}** does not have a bnet account registered\ntry ?help add")
@@ -146,7 +147,7 @@ async def elo(ctx):
 async def allstats(ctx):
     is_mention = False
 
-    for mention in ctx.message.mentions:
+    for _ in ctx.message.mentions:
         # get someone stats
         is_mention = True
         break
@@ -172,7 +173,7 @@ async def allstats(ctx):
         row = cursor.fetchone()
         if row is not None:
             total_games = row[0]
-            if total_games == 0 or total_games == None:
+            if total_games == 0 or total_games is None:
                 await ctx.channel.send("Player is registered, but there is no data,"
                                        " play and upload an eligible game to get your stats!")
                 return
@@ -184,20 +185,23 @@ async def allstats(ctx):
             mean_APM = round(row[5] / total_games, 0)
             mean_staypercent = round(row[6] / total_games, 0)
             total_creepkill = row[7]
-            total_bounty = row[8]
-            total_bountyfeed = row[9]
+            # total_bounty = row[8]
+            # total_bountyfeed = row[9]
             total_goldgathered = row[10]
-            total_dodosfound = row[11]
+            # total_dodosfound = row[11]
             total_chatcounter = row[12]
-            total_kickcounter = row[13]
+            # total_kickcounter = row[13]
             KD = round(total_kills / total_death, 2)
-            mean_assist = round(total_assist / total_games, 2)
+            # mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
-            MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
+            # MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
 
             stats_text = f"**Win/Lose/Games**: {total_win}/{total_lose}/{total_games}\n" \
-                         f"**Winrate**: {win_percentage}%\n**KDA**: {KD}\n**Stay rate**: {mean_staypercent}%\n" \
-                         f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n**Chat Counter**: {total_chatcounter}"
+                         f"**Winrate**: {win_percentage}%\n" \
+                         f"**Kills/Deaths/Assists**: {total_kills}/{total_death}/{total_assist}\n" \
+                         f"**KDA**: {KD}\n**Stay rate**: {mean_staypercent}%\n" \
+                         f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n" \
+                         f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
             embed = discord.Embed(title=player, description=stats_text, color=0x00ffad)
             embed.set_author(name="All Stats")
@@ -211,7 +215,7 @@ async def allstats(ctx):
 async def stats(ctx):
     is_mention = False
 
-    for mention in ctx.message.mentions:
+    for _ in ctx.message.mentions:
         # get someone stats
         is_mention = True
         player = ctx.message.mentions[0].name
@@ -254,20 +258,23 @@ async def stats(ctx):
             mean_APM = round(row[5] / total_games, 0)
             mean_staypercent = round(row[6] / total_games, 0)
             total_creepkill = row[7]
-            total_bounty = row[8]
-            total_bountyfeed = row[9]
+            # total_bounty = row[8]
+            # total_bountyfeed = row[9]
             total_goldgathered = row[10]
-            total_dodosfound = row[11]
+            # total_dodosfound = row[11]
             total_chatcounter = row[12]
-            total_kickcounter = row[13]
+            # total_kickcounter = row[13]
             KD = round(total_kills / total_death, 2)
-            mean_assist = round(total_assist / total_games, 2)
+            # mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
-            MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
+            # MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
 
-            stats_text = "Games played : {}\nStay percentage : {}\nWin percentage : {}\nKDA : {}\n Mean assists : {}\nMean gold balance : {}\nMean APM : {}"
-            stats_text = stats_text.format(total_games, mean_staypercent, win_percentage, KD, mean_assist, MGB,
-                                           mean_APM)
+            stats_text = f"**Win/Lose/Games**: {total_win}/{total_lose}/{total_games}\n" \
+                         f"**Winrate**: {win_percentage}%\n" \
+                         f"**Kills/Deaths/Assists**: {total_kills}/{total_death}/{total_assist}\n" \
+                         f"**KDA**: {KD}\n**Stay rate**: {mean_staypercent}%\n" \
+                         f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n" \
+                         f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
             embed = discord.Embed(title=player + " stats", description=stats_text, color=0x00ffad)
             await ctx.send(embed=embed)
@@ -313,7 +320,8 @@ async def add(ctx, wc3_name, alias):
         return
     if len(alias) > 0:
         query = f"INSERT INTO player (discord_id, wc3_name, alias) VALUES ({discord_id}, '{wc3_name}', '{alias}')" \
-                f" ON CONFLICT(wc3_name) DO UPDATE SET discord_id = {discord_id}, wc3_name = '{wc3_name}', alias = '{alias}'"
+                f" ON CONFLICT(wc3_name) DO" \
+                f" UPDATE SET discord_id = {discord_id}, wc3_name = '{wc3_name}', alias = '{alias}'"
         success_message = f"Discord User: **{name}** added Warcraft Account: **{wc3_name}** and alias: **{alias}**"
     else:
         query = f"INSERT INTO player (discord_id, wc3_name) VALUES ({discord_id}, '{wc3_name}')" \
@@ -336,6 +344,7 @@ async def change_alias(ctx, al):
         cursor = my_db.cursor()
 
         # check for duplicates
+        # TODO make query being used
         query = "SELECT alias from player WHERE alias = " + al
         row = cursor.fetchone()
 
@@ -414,34 +423,19 @@ async def balance(ctx, *players):
 
         # NOW BALANCE IT PROPERLY
 
-        closest_difference = None
-        best_team_a = ()
-        best_team_b = ()
-        T1 = []
-        T2 = []
         score = []
-        nit = sum(1 for ignore in combinations(ELO, int(len(ELO) / 2)))
+        nit = sum(1 for _ in combinations(ELO, int(len(ELO) / 2)))
         i = 0
-        print(nit)
         for team_a in combinations(ELO, int(len(ELO) / 2)):
-            #             print(team_a)
-            #             print("----------------------")
-            #             print(ELO)
-            # team_a_set = set(team_a)
             i = i + 1
             if i > nit / 2:
                 break
             team_b = remove_from(ELO.copy(), team_a)
-            #             T1.append([item[0] for item in team_a])
-            #             T2.append([item[0] for item in team_b])
             score.append([trueenv.quality([[item[1] for item in team_a], [item[1] for item in team_b]]),
                           [item[0] for item in team_a], [item[0] for item in team_b], [item[1] for item in team_a],
                           [item[1] for item in team_b]])
 
-        print(score)
         sorted_teams_by_score = sorted(score, key=balance_sorting_key, reverse=True)
-        print(sorted_teams_by_score)
-
         best_team_a = sorted_teams_by_score[0][1]
         best_team_b = sorted_teams_by_score[0][2]
         elo_a = sorted_teams_by_score[0][3]
@@ -590,6 +584,7 @@ async def on_message(message):
                 # GET /results/{replayId}
     await client.process_commands(message)
 
+
 @client.event
 async def clear_channel(channel_id):
     channel = client.get_channel(channel_id)
@@ -604,6 +599,7 @@ async def update_leaderboard():
 
 @client.command()
 async def up_leaderboard(ctx):
+    print(ctx)
     await update_leaderboard()
 
 
@@ -612,14 +608,16 @@ async def leaderboard():
     msg = ""
 
     cursor = my_db.cursor()
-    query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias FROM player ORDER BY (elo-3*elo_convergence) DESC LIMIT 26"
+    query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias " \
+            "FROM player ORDER BY (elo-3*elo_convergence) DESC LIMIT 26"
     cursor.execute(query)
     row = cursor.fetchone()
     i = 0
     while row is not None:
         i = i + 1
         #         text = "#{:<5} {:<25} {:<15} {:<15} {:<15} {:<15}".format(
-        #             player["rank"], player["name"], player["wins"], player["losses"], player["rating"], player["played"]
+        #             player["rank"], player["name"], player["wins"],
+        #             player["losses"], player["rating"], player["played"]
         #         )
         if row[0] is not None and row[2] is not None:
             msg = msg + "``` #{:<8} {:<15} {:<30}```".format(
@@ -629,8 +627,8 @@ async def leaderboard():
     await channel.send(msg)
 
 
-def disp_elo(elo, convergence):
-    R = round(50 * (elo - 3 * convergence))
+def disp_elo(player_elo, convergence):
+    R = round(50 * (player_elo - 3 * convergence))
     if R > 0:
         return R
     else:
@@ -642,7 +640,7 @@ def disp_elo(elo, convergence):
 # ==============================================================================archi
 # ==============================================================================archi
 
-#  TODO: there is a decorator for this @role=admin or so
+# TODO there is a decorator for this @role=admin or so
 async def not_admin(ctx):
     if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id):
         await ctx.channel.send(NO_POWER_MSG)
@@ -665,8 +663,8 @@ async def get_players_data(ctx):
         # write data
         for result in cursor:
             csv_out.writerow(result)
-    with open('output.csv', 'r', encoding='utf-8') as f:
-        await ctx.channel.send("here you are", file=discord.File(f.name))
+    with open('output.csv', 'r', encoding='utf-8') as player_data_file:
+        await ctx.channel.send("here you are", file=discord.File(player_data_file.name))
         os.remove("output.csv")
         # str(datetime.datetime.now()) + "_bscf-elo-players"
 
@@ -687,8 +685,8 @@ async def get_players_history(ctx):
         # write data
         for result in cursor:
             csv_out.writerow(result)
-    with open('output.csv', 'r', encoding='utf-8') as f:
-        await ctx.channel.send("here you are", file=discord.File(f.name))
+    with open('output.csv', 'r', encoding='utf-8') as player_history_file:
+        await ctx.channel.send("here you are", file=discord.File(player_history_file.name))
         os.remove("output.csv")
         # str(datetime.datetime.now()) + "_bscf-elo-players"
 
@@ -709,8 +707,8 @@ async def get_games_history(ctx):
         # write data
         for result in cursor:
             csv_out.writerow(result)
-    with open('output.csv', 'r', encoding='utf-8') as f:
-        await ctx.channel.send("here you are", file=discord.File(f.name))
+    with open('output.csv', 'r', encoding='utf-8') as games_history_file:
+        await ctx.channel.send("here you are", file=discord.File(games_history_file.name))
         os.remove("output.csv")
         # str(datetime.datetime.now()) + "_bscf-elo-players"
 
@@ -736,7 +734,8 @@ async def add_map(ctx, wc3stats_map_checksum, official_filename, map_hash):
     if await not_admin(ctx):
         return
     cursor = my_db.cursor()
-    query = "INSERT INTO map_files (wc3stats_checksum,official_filename,elo_rated,hash) VALUES ({},'{}',{},'{}') ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
+    query = "INSERT INTO map_files (wc3stats_checksum,official_filename,elo_rated,hash) " \
+            "VALUES ({},'{}',{},'{}') ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
     query = query.format(wc3stats_map_checksum, official_filename, 1, map_hash, 1)
     cursor.execute(query)
     my_db.commit()
@@ -748,7 +747,8 @@ async def remove_map(ctx, wc3stats_map_checksum):
     if await not_admin(ctx):
         return
     cursor = my_db.cursor()
-    query = "INSERT INTO map_files (wc3stats_checksum,elo_rated) VALUES ({},{}) ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
+    query = "INSERT INTO map_files (wc3stats_checksum,elo_rated) " \
+            "VALUES ({},{}) ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
     query = query.format(wc3stats_map_checksum, 0, 0)
     cursor.execute(query)
     my_db.commit()
@@ -771,13 +771,19 @@ async def post_replay(replay):
 
 
 def is_this_valid(file_checksum, replay_hash, t0, t1, others, pcount, unregistered):
-    if (len(t0) not in range(3, 6) or len(t1) not in range(3,
-                                                           6)) or others or unregistered / pcount > 0.3:  # unregistered/pcount > 0.99
-        logging.info("uneligible teams")
+    # unregistered/pcount > 0.99
+    if (len(t0) not in range(3, 6) or len(t1) not in range(3, 6)) or others or unregistered / pcount > 0.3:
+        # TODO file_checksum not being used
+        logging.info(f"File Checksum: {file_checksum}")
+        # TODO replay_hash not being used
+        logging.info(f"Replay Hash: {replay_hash}")
+
         # uneligible teams
+        logging.info("uneligible teams")
         return False
-    logging.info("valid teams for elo")
-    return True
+    else:
+        logging.info("valid teams for elo")
+        return True
 
 
 def replay_parse(replay_response):
@@ -870,15 +876,17 @@ def replay_parse(replay_response):
                 logging.debug("gobs detected")
                 others = True
     except Exception:
-        # invalid replay (proly because it's incomplete : ie a leaver before victory screen)
+        # invalid replay (probably because it's incomplete : ie a leaver before victory screen)
 
         duration = 0
         season = 0
         valid = 0
-        sqlquery = "INSERT INTO crossfire_games (game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) VALUES ({},'{}',{},{},'{}',{},'{}',{},'{}')"
-        sqlquery = sqlquery.format(wc3stats_id, gn, valid, timestamp, duration, season, map_filename, map_checksum,
-                                   replay_hash)
-        cursor.execute(sqlquery)
+        sql_query = "INSERT INTO crossfire_games" \
+                    " (game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
+                    "VALUES ({},'{}',{},{},'{}',{},'{}',{},'{}')"
+        sql_query = sql_query.format(wc3stats_id, gn, valid, timestamp, duration,
+                                     season, map_filename, map_checksum, replay_hash)
+        cursor.execute(sql_query)
         my_db.commit()
         return "The replay looks incomplete"
 
@@ -886,7 +894,7 @@ def replay_parse(replay_response):
 
     if valid == 0 or timestamp < 1600000000 or (t0win == False and t1win == False):
         my_db.commit()
-        # TODO : INFORM
+        # TODO INFORM
         return "Replay ineligible"
 
     # elo_change,elo_confidence_change,name = elo_calculus(winning_names,losing_names)
@@ -922,79 +930,85 @@ def replay_parse(replay_response):
         chatcounter = mmd['chatcounter']
         shiplist = mmd['shiplist']
 
-        sqlquery = "INSERT INTO crossfire_stats (wc3_name,game_id,win,elo_change,elo_confidence_change,kills,deaths,assists,APM,staypercent,creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter,shiplist) VALUES ('{}',{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},'{}')"
-        sqlquery = "INSERT INTO crossfire_stats (wc3_name,game_id,win,elo_change,elo_confidence_change,kills,deaths,assists,APM,staypercent,creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter,shiplist) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        # TODO why set sql_query twice here?
+        # sql_query = "INSERT INTO crossfire_stats " \
+        #             "(wc3_name,game_id,win,elo_change,elo_confidence_change,kills,deaths,assists,APM,staypercent," \
+        #             "creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter" \
+        #             ",shiplist) VALUES ('{}',{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},'{}')"
+        sql_query = "INSERT INTO crossfire_stats (wc3_name,game_id,win,elo_change,elo_confidence_change,kills,deaths,assists,APM,staypercent,creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter,shiplist) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         params = [wc3_name, wc3stats_id, win, elo_change[name.index(wc3_name)],
                   elo_confidence_change[name.index(wc3_name)], kills, deaths, assists, APM, staypercent, creepkills,
                   bounty, bountyfeed, goldgathered, lumbergathered, dodosfound, chatcounter, kickcounter, shiplist]
-        # sqlquery = sqlquery.format(wc3_name,wc3stats_id,win,elo_change[name.index(wc3_name)],elo_confidence_change[name.index(wc3_name)],kills,deaths,assists,APM,staypercent,creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter,shiplist)
-        logging.debug(sqlquery)
+        # sql_query = sql_query.format(wc3_name,wc3stats_id,win,elo_change[name.index(wc3_name)],elo_confidence_change[name.index(wc3_name)],kills,deaths,assists,APM,staypercent,creepkills,bounty,bountyfeed,goldgathered,lumbergathered,dodosfound,chatcounter,kickcounter,shiplist)
+        logging.debug(sql_query)
         logging.debug(params)
-        cursor.execute(sqlquery, params)
-        logging.info(sqlquery)
+        cursor.execute(sql_query, params)
+        logging.info(sql_query)
 
     duration = 0
     season = 0
-    sqlquery = "INSERT INTO crossfire_games (game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) VALUES ({},'{}',{},{},'{}',{},'{}',{},'{}')"
-    sqlquery = sqlquery.format(wc3stats_id, gn, valid, timestamp, duration, season, map_filename, map_checksum,
-                               replay_hash)
-    cursor.execute(sqlquery)
+    sql_query = "INSERT INTO crossfire_games " \
+                "(game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
+                "VALUES ({},'{}',{},{},'{}',{},'{}',{},'{}')"
+    sql_query = sql_query.format(wc3stats_id, gn, valid, timestamp, duration,
+                                 season, map_filename, map_checksum, replay_hash)
+    cursor.execute(sql_query)
     my_db.commit()
 
-    discord_message = "Replay sent (map_id = " + str(map_checksum) + ") => https://wc3stats.com/games/" + str(
-        replay_response['body']['id'])
+    discord_message = f"Replay sent (map_id = {map_checksum}) => " \
+                      f"https://wc3stats.com/games/{replay_response['body']['id']}"
     return discord_message
 
 
 def elo_calculus(wn, ln):
-    Wteam = []
-    Lteam = []
+    winning_team = []
+    losing_team = []
     elo_change = []
     elo_confidence_change = []
     name = []
 
     cursor = my_db.cursor()
     for i in range(len(wn)):
-        sqlquery = "SELECT elo,elo_convergence FROM player WHERE wc3_name ='" + wn[i] + "'"
-        cursor.execute(sqlquery)
+        sql_query = "SELECT elo,elo_convergence FROM player WHERE wc3_name ='" + wn[i] + "'"
+        cursor.execute(sql_query)
         row = cursor.fetchone()
         if row is None:
-            Wteam.append(trueenv.Rating())
+            winning_team.append(trueenv.Rating())
         else:
-            Wteam.append(trueenv.Rating(row[0], row[1]))
+            winning_team.append(trueenv.Rating(row[0], row[1]))
 
     for i in range(len(ln)):
-        sqlquery = "SELECT elo,elo_convergence FROM player WHERE wc3_name ='" + ln[i] + "'"
-        cursor.execute(sqlquery)
+        sql_query = "SELECT elo,elo_convergence FROM player WHERE wc3_name ='" + ln[i] + "'"
+        cursor.execute(sql_query)
         row = cursor.fetchone()
         if row is None:
-            Lteam.append(trueenv.Rating())
+            losing_team.append(trueenv.Rating())
         else:
-            Lteam.append(trueenv.Rating(row[0], row[1]))
+            losing_team.append(trueenv.Rating(row[0], row[1]))
 
     # now faces the teams
-    nt0, nt1 = trueenv.rate([Wteam, Lteam], ranks=[0, 1])
+    nt0, nt1 = trueenv.rate([winning_team, losing_team], ranks=[0, 1])
 
-    print(Wteam)
+    print(winning_team)
     for i in range(len(wn)):
-        elo_change.append(nt0[i].mu - Wteam[i].mu)
-        elo_confidence_change.append(nt0[i].sigma - Wteam[i].sigma)
+        elo_change.append(nt0[i].mu - winning_team[i].mu)
+        elo_confidence_change.append(nt0[i].sigma - winning_team[i].sigma)
         name.append(wn[i])
         elo = nt0[i].mu
         elo_sigma = nt0[i].sigma * (9 / 10)
-        sqlquery = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
-        sqlquery = sqlquery.format(wn[i], elo, elo_sigma, elo, elo_sigma)
-        cursor.execute(sqlquery)
+        sql_query = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
+        sql_query = sql_query.format(wn[i], elo, elo_sigma, elo, elo_sigma)
+        cursor.execute(sql_query)
     print(wn)
     for i in range(len(ln)):
-        elo_change.append(nt1[i].mu - Lteam[i].mu)
-        elo_confidence_change.append(nt1[i].sigma - Lteam[i].sigma)
+        elo_change.append(nt1[i].mu - losing_team[i].mu)
+        elo_confidence_change.append(nt1[i].sigma - losing_team[i].sigma)
         name.append(ln[i])
         elo = nt1[i].mu
         elo_sigma = nt1[i].sigma * (9 / 10)
-        sqlquery = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
-        sqlquery = sqlquery.format(ln[i], elo, elo_sigma, elo, elo_sigma)
-        cursor.execute(sqlquery)
+        sql_query = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
+        sql_query = sql_query.format(ln[i], elo, elo_sigma, elo, elo_sigma)
+        cursor.execute(sql_query)
 
     my_db.commit()
     return elo_change, elo_confidence_change, name
@@ -1009,7 +1023,7 @@ async def new_season(ctx):
 
     if big_decision_admin_count <= 0:
         await new_season_flush()
-        await ctx.channel.send("KEKW")
+        await ctx.channel.send("<:KEKW:693132898760523846>")
     else:
         await ctx.channel.send(
             "Admin <@!" + str(ctx.author.id) + "> is asking for a new ranked season to start ! \nat least " + str(
@@ -1030,6 +1044,7 @@ async def new_season_flush():
         else:
             new_elo = start_elo
 
+        # TODO this if/else does nothing because it gets assigned later
         if row[2] is not None:
             new_elo_convergence = row[2]
         else:
