@@ -277,7 +277,7 @@ async def stats(ctx):
                          f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n" \
                          f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
-            embed = discord.Embed(title=player + " stats", description=stats_text, color=0x00ffad)
+            embed = discord.Embed(title="Stats for this season", description=stats_text, color=0x00ffad)
             await ctx.send(embed=embed)
     else:
         # player isnt registered
