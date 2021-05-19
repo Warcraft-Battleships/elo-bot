@@ -376,7 +376,7 @@ async def balance(ctx, *players):
     # If all players are in the Elobot Voice channel
     if len(players) == 0:
         print(client.get_channel(elo_bot_voicechat_id).members)
-    return
+        return
 
     if len(players) % 2 == 0:
         if len(list(players)) != len(set(players)):
