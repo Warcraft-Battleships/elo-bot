@@ -375,11 +375,9 @@ async def balance(ctx, *players):
 
     # If all players are in the Elobot Voice channel
     if len(players) == 0:
-        temp = []
-        players_in_channel = client.get_channel(elo_bot_voicechat_id).members
-        for member in players_in_channel:
-            temp.append(member.mention)
-        players = temp
+        print(client.get_channel(elo_bot_voicechat_id).members)
+    return
+
     if len(players) % 2 == 0:
         if len(list(players)) != len(set(players)):
             await ctx.send("Duplicate found")
