@@ -219,11 +219,12 @@ async def stats(ctx):
         # get someone stats
         is_mention = True
         player = ctx.message.mentions[0].name
-        query = "SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = " + str(
-            ctx.message.mentions[0].id)
         break
 
-    if not is_mention:
+    if is_mention:
+        query = "SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = " + str(
+            ctx.message.mentions[0].id)
+    else:
         if ctx.author.nick is not None:
             player = ctx.author.nick
         else:
