@@ -43,6 +43,7 @@ upload_channel = None
 admin_role_id = 461111074523971584  # test channel 698548028591570994 // bscf 461111074523971584
 big_decision_admin_count = 2
 NO_POWER_MSG = "You do not have enough power to perform such an action."
+elo_bot_voicechat_id = 664838396275064845
 
 start_elo = 25
 start_elo_convergence = 25 / 3
@@ -372,6 +373,13 @@ async def delete_account(ctx):
 async def balance(ctx, *players):
     ELO = []
 
+    # If all players are in the Elobot Voice channel
+    if len(players) == 0:
+        temp = []
+        players_in_channel = client.get_channel(elo_bot_voicechat_id).members
+        for member in players_in_channel:
+            temp.append(member.mention)
+        players = temp
     if len(players) % 2 == 0:
         if len(list(players)) != len(set(players)):
             await ctx.send("Duplicate found")
