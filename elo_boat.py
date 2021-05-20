@@ -348,6 +348,7 @@ async def change_alias(ctx, al):
         # check for duplicates
         # TODO make query being used
         query = "SELECT alias from player WHERE alias = " + al
+        cursor.execute(query)
         row = cursor.fetchone()
 
         if row is None:
