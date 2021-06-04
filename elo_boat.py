@@ -186,8 +186,8 @@ async def allstats(ctx):
             mean_APM = round(row[5] / total_games, 0)
             mean_staypercent = round(row[6] / total_games, 0)
             total_creepkill = row[7]
-            # total_bounty = row[8]
-            # total_bountyfeed = row[9]
+            total_bounty = row[8]
+            total_bountyfeed = row[9]
             total_goldgathered = row[10]
             # total_dodosfound = row[11]
             total_chatcounter = row[12]
@@ -195,13 +195,13 @@ async def allstats(ctx):
             KD = round(total_kills / total_death, 2)
             # mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
-            # MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
-
+            MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
+            
             stats_text = f"**Win/Lose/Games**: {total_win}/{total_lose}/{total_games}\n" \
                          f"**Winrate**: {win_percentage}%\n" \
                          f"**Kills/Deaths/Assists**: {total_kills}/{total_death}/{total_assist}\n" \
                          f"**KDA**: {KD}\n**Stay rate**: {mean_staypercent}%\n" \
-                         f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n" \
+                         f"**Mean APM**: {mean_APM}\n**Average loot**: {MGB}\n" \
                          f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
             embed = discord.Embed(title=player, description=stats_text, color=0x00ffad)
@@ -260,8 +260,8 @@ async def stats(ctx):
             mean_APM = round(row[5] / total_games, 0)
             mean_staypercent = round(row[6] / total_games, 0)
             total_creepkill = row[7]
-            # total_bounty = row[8]
-            # total_bountyfeed = row[9]
+            total_bounty = row[8]
+            total_bountyfeed = row[9]
             total_goldgathered = row[10]
             # total_dodosfound = row[11]
             total_chatcounter = row[12]
@@ -269,13 +269,13 @@ async def stats(ctx):
             KD = round(total_kills / total_death, 2)
             # mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
-            # MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
+            MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
 
             stats_text = f"**Win/Lose/Games**: {total_win}/{total_lose}/{total_games}\n" \
                          f"**Winrate**: {win_percentage}%\n" \
                          f"**Kills/Deaths/Assists**: {total_kills}/{total_death}/{total_assist}\n" \
                          f"**KDA**: {KD}\n**Stay rate**: {mean_staypercent}%\n" \
-                         f"**Mean APM**: {mean_APM}\n**Gold gathered**: {total_goldgathered}\n" \
+                         f"**Mean APM**: {mean_APM}\n**Average loot**: {MGB}\n" \
                          f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
             embed = discord.Embed(title="Stats for this season", description=stats_text, color=0x00ffad)
