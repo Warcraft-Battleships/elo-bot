@@ -743,7 +743,7 @@ async def add_map(ctx, wc3stats_map_checksum, official_filename, map_hash):
         return
     cursor = my_db.cursor()
     query = "INSERT INTO map_files (wc3stats_checksum,official_filename,elo_rated,hash) " \
-            "VALUES ({},'{}',{},'{}') ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
+            "VALUES ('{}','{}',{},'{}') ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
     query = query.format(wc3stats_map_checksum, official_filename, 1, map_hash, 1)
     cursor.execute(query)
     my_db.commit()
@@ -756,7 +756,7 @@ async def remove_map(ctx, wc3stats_map_checksum):
         return
     cursor = my_db.cursor()
     query = "INSERT INTO map_files (wc3stats_checksum,elo_rated) " \
-            "VALUES ({},{}) ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
+            "VALUES ('{}',{}) ON CONFLICT(wc3stats_checksum) DO UPDATE SET elo_rated={}"
     query = query.format(wc3stats_map_checksum, 0, 0)
     cursor.execute(query)
     my_db.commit()
@@ -797,7 +797,7 @@ def is_this_valid(file_checksum, replay_hash, t0, t1, others, pcount, unregister
 def replay_parse(replay_response):
     map_checksum = replay_response['body']['data']['game']['checksum']
     cursor = my_db.cursor()
-    query = "SELECT wc3stats_checksum,elo_rated FROM map_files WHERE wc3stats_checksum = " + str(map_checksum)
+    query = "SELECT wc3stats_checksum,elo_rated FROM map_files WHERE wc3stats_checksum = '" + str(map_checksum) + "'"
     cursor.execute(query)
     row = cursor.fetchone()
     if row is not None:
