@@ -957,7 +957,7 @@ def replay_parse(replay_response):
     season = 0
     sql_query = "INSERT INTO crossfire_games " \
                 "(game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
-                "VALUES ('{}','{}',{},{},'{}',{},'{}',{},'{}')"
+                "VALUES ({},'{}',{},{},'{}',{},'{}','{}','{}')"
     sql_query = sql_query.format(wc3stats_id, gn, valid, timestamp, duration,
                                  season, map_filename, map_checksum, replay_hash)
     cursor.execute(sql_query)
