@@ -293,12 +293,12 @@ async def add(ctx, wc3_name, alias):
     wc3_name = wc3_name.lower()
     alias = alias.lower()
     # check of database entry
-    query = "SELECT * FROM `player` WHERE `discord_id` = '{discord_id}'"
+    query = f"SELECT * FROM `player` WHERE `discord_id` = '{discord_id}'"
     cursor = my_db.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
     if len(result) > 0:
-        await ctx.send(f"You already added an account.")
+        await ctx.send("You already added an account.")
         return
     # check wc3name containing #
     if "#" not in wc3_name:
@@ -492,8 +492,8 @@ async def draft(ctx, *players):
             south_captain = players[1]
 
             # get captain id
-            query = "SELECT `discord_id` FROM `player` WHERE `alias` = '{north_captain}'" \
-                    " OR `wc3_name` = '{north_captain}'"
+            query = f"SELECT `discord_id` FROM `player` WHERE `alias` = '{north_captain}'" \
+                    f" OR `wc3_name` = '{north_captain}'"
             cursor.execute(query)
 
             north_captain_id = cursor.fetchone()
@@ -502,8 +502,8 @@ async def draft(ctx, *players):
             else:
                 await ctx.send(f"{north_captain} not found. Both captains need to be added.")
                 return
-            query = "SELECT `discord_id` FROM `player` WHERE `alias` = '{south_captain}'" \
-                    " OR `wc3_name` = '{south_captain}'"
+            query = f"SELECT `discord_id` FROM `player` WHERE `alias` = '{south_captain}'" \
+                    f" OR `wc3_name` = '{south_captain}'"
             cursor = my_db.cursor()
             cursor.execute(query)
             south_captain_id = cursor.fetchone()
