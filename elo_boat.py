@@ -481,7 +481,7 @@ def remove_from(b, a):
     return b
 
 
-# @client.command()
+@client.command()
 async def draft(ctx, *players):
     cursor = my_db.cursor()
     players = list(players)
@@ -492,8 +492,8 @@ async def draft(ctx, *players):
             south_captain = players[1]
 
             # get captain id
-            query = f"SELECT `discord_id` FROM `player` WHERE `alias` = '{north_captain}'" \
-                    f" OR `wc3_name` = '{north_captain}'"
+            query = "SELECT `discord_id` FROM `player` WHERE `alias` = '{north_captain}'" \
+                    " OR `wc3_name` = '{north_captain}'"
             cursor.execute(query)
 
             north_captain_id = cursor.fetchone()
@@ -502,8 +502,8 @@ async def draft(ctx, *players):
             else:
                 await ctx.send(f"{north_captain} not found. Both captains need to be added.")
                 return
-            query = f"SELECT `discord_id` FROM `player` WHERE `alias` = '{south_captain}'" \
-                    f" OR `wc3_name` = '{south_captain}'"
+            query = "SELECT `discord_id` FROM `player` WHERE `alias` = '{south_captain}'" \
+                    " OR `wc3_name` = '{south_captain}'"
             cursor = my_db.cursor()
             cursor.execute(query)
             south_captain_id = cursor.fetchone()
