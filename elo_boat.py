@@ -196,7 +196,7 @@ async def allstats(ctx):
             # mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
             MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
-            
+
             stats_text = f"**Win/Lose/Games**: {total_win}/{total_lose}/{total_games}\n" \
                          f"**Winrate**: {win_percentage}%\n" \
                          f"**Kills/Deaths/Assists**: {total_kills}/{total_death}/{total_assist}\n" \
