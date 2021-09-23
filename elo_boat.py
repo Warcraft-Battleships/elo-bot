@@ -34,11 +34,11 @@ intents = discord.Intents.all()
 client = discord.ext.commands.Bot(command_prefix='?', case_insensitive=True, intents=intents)
 client.remove_command("help")
 
-GUILD_NAME = "Battleships"  # "BotTest" #
+GUILD_NAME = "Battleships"
 _guild = None
 baseurl = "https://api.wc3stats.com"
-leaderboard_channel_id = 716379545095241809  # test channel 804443429957664808 #716379545095241809
-upload_channel_id = 646155910640697375  # test channel 804443389641752597 #646155910640697375
+leaderboard_channel_id = 716379545095241809
+upload_channel_id = 646155910640697375
 upload_channel = None
 admin_role_id = 461111074523971584  # test channel 698548028591570994 // bscf 461111074523971584
 big_decision_admin_count = 2
@@ -613,26 +613,29 @@ async def up_leaderboard(ctx):
 
 async def leaderboard():
     channel = client.get_channel(leaderboard_channel_id)
-    msg = ""
+    msg = "```{:<9}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
+                "Place", "Elo", "Player", "Winrate", "Games", "Wins", "Loses")
 
     cursor = my_db.cursor()
     query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias " \
-            "FROM player ORDER BY (elo-3*elo_convergence) DESC LIMIT 26"
+            "FROM player ORDER BY (elo-3*elo_convergence) DESC LIMIT 31"
     cursor.execute(query)
     row = cursor.fetchone()
     i = 0
     while row is not None:
         i = i + 1
-        #         text = "#{:<5} {:<25} {:<15} {:<15} {:<15} {:<15}".format(
-        #             player["rank"], player["name"], player["wins"],
-        #             player["losses"], player["rating"], player["played"]
-        #         )
-        if row[0] is not None and row[2] is not None:
-            msg = msg + "``` #{:<8} {:<15} {:<30}```".format(
-                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")")
+        if row[1] is not None and row[2] is not None:
+            win_lose_cursor = my_db.cursor()
+            win_lose_query = "SELECT count(CASE WHEN win = 1 then win end), count(CASE WHEN win = 0 then win end) FROM 'crossfire_stats' WHERE wc3_name = \"" + str(row[1]) + "\""
+            win_lose_cursor.execute(win_lose_query)
+            win, lose = win_lose_cursor.fetchone()
+            msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
+                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % (win/(win + lose)*100)) + "%", str(win + lose), str(win), str(lose))
         row = cursor.fetchone()
-
-    await channel.send(msg)
+        if i % 5 == 0:
+            msg += "```"
+            await channel.send(msg)
+            msg = "```"
 
 
 def disp_elo(player_elo, convergence):
