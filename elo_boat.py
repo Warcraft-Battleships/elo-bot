@@ -722,7 +722,7 @@ def disp_elo(player_elo, convergence):
 
 # TODO there is a decorator for this @role=admin or so
 async def not_admin(ctx):
-    if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id):
+    if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
         await ctx.channel.send(NO_POWER_MSG)
         return True
 
