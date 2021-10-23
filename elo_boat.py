@@ -42,7 +42,7 @@ upload_channel_id = params.upload_channel_id
 admin_role_id = params.admin_role_id
 big_decision_admin_count = params.big_decision_admin_count
 elo_bot_voicechat_id = params.elo_bot_voicechat_id
-
+admin_channel_id = params.admin_channel_id
 
 _guild = None
 baseurl = "https://api.wc3stats.com"
@@ -730,7 +730,7 @@ async def not_admin(ctx):
 
 @client.command()
 async def get_players_data(ctx):
-    if ctx.channel.id != 464772119671210014:
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
@@ -750,14 +750,18 @@ async def get_players_data(ctx):
         # str(datetime.datetime.now()) + "_bscf-elo-players"
 
 
+        
 @client.command()
-async def get_players_history(ctx):
-    if ctx.channel.id != 464772119671210014:
+async def get_players_history(ctx,wc3_tag = None):
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
     cursor = my_db.cursor()
-    query = "SELECT * FROM crossfire_stats"
+    if wc3_tag is None:
+        query = "SELECT * FROM crossfire_stats"
+    else:
+        query = "SELECT * FROM crossfire_stats WHERE wc3_name ='" + wc3_tag +"'"
     cursor.execute(query)
     with open('output.csv', 'w', encoding='utf-8') as out_csv_file:
         csv_out = csv.writer(out_csv_file)
@@ -774,7 +778,7 @@ async def get_players_history(ctx):
 
 @client.command()
 async def get_games_history(ctx):
-    if ctx.channel.id != 464772119671210014:
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
