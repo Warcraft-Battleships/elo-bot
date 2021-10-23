@@ -14,6 +14,8 @@ import random
 import csv
 import datetime
 
+import params
+
 # discord_related
 logger = logging.getLogger('discord')
 logging.basicConfig(filename='elobot.log', level=logging.INFO, format='%(asctime)s:%(levelname)s:%(name)s: %(message)s')
@@ -34,20 +36,24 @@ intents = discord.Intents.all()
 client = discord.ext.commands.Bot(command_prefix='?', case_insensitive=True, intents=intents)
 client.remove_command("help")
 
-GUILD_NAME = "Battleships"
+GUILD_NAME = params.GUILD_NAME
+leaderboard_channel_id = params.leaderboard_channel_id
+upload_channel_id = params.upload_channel_id
+admin_role_id = params.admin_role_id
+big_decision_admin_count = params.big_decision_admin_count
+elo_bot_voicechat_id = params.elo_bot_voicechat_id
+admin_channel_id = params.admin_channel_id
+
 _guild = None
 baseurl = "https://api.wc3stats.com"
-leaderboard_channel_id = 716379545095241809
-upload_channel_id = 646155910640697375
 upload_channel = None
-admin_role_id = 461111074523971584  # test channel 698548028591570994 // bscf 461111074523971584
-big_decision_admin_count = 2
+ # test channel 698548028591570994 // bscf 461111074523971584
 NO_POWER_MSG = "You do not have enough power to perform such an action."
-elo_bot_voicechat_id = 664838396275064845
 
 start_elo = 25
 start_elo_convergence = 25 / 3
-trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=3, tau=3 / 2, draw_probability=0.99)
+decay_value = 6 #in minus elo per game
+trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=4, tau=1 / 2, draw_probability=0.01)
 trueenv.make_as_global()
 
 
@@ -123,6 +129,61 @@ async def def_elo(ctx, value):
     query = "UPDATE player SET elo = " + str(new_elo) + " WHERE discord_id = " + str(ctx.author.id)
     cursor.execute(query)
     my_db.commit()
+
+    
+@client.command()
+async def list_bans(ctx):
+    if await not_admin(ctx):
+        return
+    cursor = my_db.cursor()
+    query = "SELECT wc3_name FROM player WHERE suspended = 1"
+    cursor.execute(query)
+    row = cursor.fetchone()
+    if row is not None:
+        msg = "These players are currently suspended : \n"
+        while row is not None:
+            msg = msg + row[0] + "\n"
+            row = cursor.fetchone()
+    else :
+        msg = "Nobody is banned atm ! awesome community =]"
+    
+    await ctx.channel.send(msg)
+    
+@client.command()
+async def ban(ctx,wc3_name):
+    if await not_admin(ctx):
+        return
+    cursor = my_db.cursor()
+    test = "SELECT rowid FROM player WHERE wc3_name = '" + str(wc3_name)+"'"
+    cursor.execute(test)
+    row = cursor.fetchone()
+    channel = await ctx.author.create_dm()
+    if row is not None:
+        query = "UPDATE player SET suspended = " + str(1) + " WHERE wc3_name = '" + str(wc3_name) + "'"
+        cursor.execute(query)
+        temp = my_db.commit()
+        await channel.send("Successfully banned player " + str(wc3_name))
+    else:
+        await channel.send("Player not found")
+    
+    
+    
+@client.command()
+async def unban(ctx,wc3_name):
+    if await not_admin(ctx):
+        return
+    cursor = my_db.cursor()
+    test = "SELECT rowid FROM player WHERE wc3_name = '" + str(wc3_name)+"'"
+    cursor.execute(test)
+    row = cursor.fetchone()
+    channel = await ctx.author.create_dm()
+    if row is not None:
+        query = "UPDATE player SET suspended = " + str(0) + " WHERE wc3_name = '" + str(wc3_name) + "'"
+        cursor.execute(query)
+        temp = my_db.commit()
+        await channel.send("Successfully unbanned player " + str(wc3_name))
+    else:
+        await channel.send("Player not found")
 
 
 @client.command()
@@ -286,7 +347,7 @@ async def stats(ctx):
 
 
 @client.command()
-async def add(ctx, wc3_name, alias):
+async def add(ctx, wc3_name, alias=""):
     global my_db
     name = ctx.message.author
     discord_id = ctx.message.author.id
@@ -388,11 +449,14 @@ async def balance(ctx, *players):
             if "#" in player:
                 # player is wc3name
                 player = player.lower()
-                query = f"SELECT elo,elo_convergence FROM `player` WHERE wc3_name = '{player}'"
+                query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player}'"
                 cursor = my_db.cursor()
                 cursor.execute(query)
                 result = cursor.fetchone()
                 if result is not None:
+                    if result[2] != 0:
+                        await ctx.channel.send("Cannot balance this game : account " + player + " has been suspended")
+                        return
                     ELO.append([player, trueenv.Rating(result[0], result[1])])
                 else:
                     # using default ELO
@@ -404,7 +468,7 @@ async def balance(ctx, *players):
             else:
                 # alias
                 player = player.lower()
-                query = f"SELECT wc3_name,elo,elo_convergence FROM `player` WHERE `alias` = '{player}'"
+                query = f"SELECT wc3_name,elo,elo_convergence,suspended FROM `player` WHERE `alias` = '{player}'"
                 cursor = my_db.cursor()
                 cursor.execute(query)
                 result = cursor.fetchone()
@@ -413,16 +477,22 @@ async def balance(ctx, *players):
 
                     ELO.append([player, trueenv.Rating(start_elo, start_elo_convergence)])
                 else:
+                    if result[3] != 0:
+                        await ctx.channel.send("Cannot balance this game : account " + result[0] + " has been suspended")
+                        return
                     print(result)
                     ELO.append([result[0], trueenv.Rating(result[1], result[2])])
 
         for mention in ctx.message.mentions:
-            query = "SELECT elo,elo_convergence,wc3_name FROM `player` WHERE discord_id = " + str(mention.id)
+            query = "SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = " + str(mention.id)
             cursor = my_db.cursor()
             cursor.execute(query)
             row = cursor.fetchone()
             print(row)
             if row is not None:
+                if row[3] != 0:
+                    await ctx.channel.send("Cannot balance this game : account " + row[2] + " has been suspended")
+                    return
                 ELO.append([row[2], trueenv.Rating(row[0], row[1])])
             else:
                 await ctx.send(
@@ -618,7 +688,7 @@ async def leaderboard():
 
     cursor = my_db.cursor()
     query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias " \
-            "FROM player ORDER BY (elo-3*elo_convergence) DESC LIMIT 31"
+            "FROM player WHERE suspended = 0 ORDER BY (elo-3*elo_convergence) DESC LIMIT 31"
     cursor.execute(query)
     row = cursor.fetchone()
     i = 0
@@ -653,14 +723,14 @@ def disp_elo(player_elo, convergence):
 
 # TODO there is a decorator for this @role=admin or so
 async def not_admin(ctx):
-    if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id):
+    if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
         await ctx.channel.send(NO_POWER_MSG)
         return True
 
 
 @client.command()
 async def get_players_data(ctx):
-    if ctx.channel.id != 464772119671210014:
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
@@ -680,14 +750,18 @@ async def get_players_data(ctx):
         # str(datetime.datetime.now()) + "_bscf-elo-players"
 
 
+        
 @client.command()
-async def get_players_history(ctx):
-    if ctx.channel.id != 464772119671210014:
+async def get_players_history(ctx,wc3_tag = None):
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
     cursor = my_db.cursor()
-    query = "SELECT * FROM crossfire_stats"
+    if wc3_tag is None:
+        query = "SELECT * FROM crossfire_stats"
+    else:
+        query = "SELECT * FROM crossfire_stats WHERE wc3_name ='" + wc3_tag +"'"
     cursor.execute(query)
     with open('output.csv', 'w', encoding='utf-8') as out_csv_file:
         csv_out = csv.writer(out_csv_file)
@@ -704,7 +778,7 @@ async def get_players_history(ctx):
 
 @client.command()
 async def get_games_history(ctx):
-    if ctx.channel.id != 464772119671210014:
+    if ctx.channel.id != admin_channel_id:
         return
     if await not_admin(ctx):
         return
@@ -846,17 +920,20 @@ def replay_parse(replay_response):
         for i in range(len(player_info)):
             if player_info[i]['team'] == 0:
 
-                query = "SELECT discord_id FROM player WHERE wc3_name = '" + player_info[i]['name'] + "'"
+                query = "SELECT discord_id,suspended FROM player WHERE wc3_name = '" + player_info[i]['name'] + "'"
                 cursor.execute(query)
                 row = cursor.fetchone()
                 if row is not None:
                     pcount = pcount + 1
+                    if row[1] != 0:
+                        return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
                 else:
                     unregistered = unregistered + 1
                     pcount = pcount + 1
 
                 t0.append(player_info[i]['name'])
                 # n0.append(player_info[i]['name'])
+                
 
                 if player_info[i]['flags'][0] == 'winner':
                     winning_names.append(player_info[i]['name'])
@@ -866,15 +943,17 @@ def replay_parse(replay_response):
 
             elif player_info[i]['team'] == 1:
 
-                query = "SELECT discord_id FROM player WHERE wc3_name = '" + player_info[i]['name'] + "'"
+                query = "SELECT discord_id,suspended FROM player WHERE wc3_name = '" + player_info[i]['name'] + "'"
                 cursor.execute(query)
                 row = cursor.fetchone()
                 if row is not None:
                     pcount = pcount + 1
+                    if row[1] != 0:
+                        return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
                 else:
                     unregistered = unregistered + 1
                     pcount = pcount + 1
-
+                
                 t1.append(player_info[i]['name'])
                 # n1.append(player_info[i]['name'])
 
@@ -916,9 +995,15 @@ def replay_parse(replay_response):
     cursor = my_db.cursor()
     # by_player_parse
     for i in range(len(replay_response['body']['data']['game']['players'])):
-
+        
         player_data = replay_response['body']['data']['game']['players'][i]
         wc3_name = player_data['name']
+        
+        if i == 0:
+            players_string = "'" +  wc3_name + "'"
+        else:
+            players_string = players_string + ",'"  + wc3_name + "'"
+            
         if player_data['flags'][0] == 'winner':
             win = 1
         else:
@@ -955,7 +1040,6 @@ def replay_parse(replay_response):
         logging.debug(params)
         cursor.execute(sql_query, params)
         logging.info(sql_query)
-
     duration = 0
     season = 0
     sql_query = "INSERT INTO crossfire_games " \
@@ -963,9 +1047,13 @@ def replay_parse(replay_response):
                 "VALUES ({},'{}',{},{},'{}',{},'{}','{}','{}')"
     sql_query = sql_query.format(wc3stats_id, gn, valid, timestamp, duration,
                                  season, map_filename, map_checksum, replay_hash)
+    cursor.execute(sql_query)  
+    #decay
+    sql_query = "UPDATE player SET elo_convergence=elo_convergence+" + str(round(decay_value/150,3)) + " WHERE wc3_name NOT IN (" + players_string +")"
+    print(sql_query)
+    logging.debug(sql_query)
     cursor.execute(sql_query)
     my_db.commit()
-
     discord_message = f"Replay sent (map_id = {map_checksum}) => " \
                       f"https://wc3stats.com/games/{replay_response['body']['id']}"
     return discord_message
@@ -1006,7 +1094,7 @@ def elo_calculus(wn, ln):
         elo_confidence_change.append(nt0[i].sigma - winning_team[i].sigma)
         name.append(wn[i])
         elo = nt0[i].mu
-        elo_sigma = nt0[i].sigma * (9 / 10)
+        elo_sigma = nt0[i].sigma * (19 / 20)
         sql_query = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
         sql_query = sql_query.format(wn[i], elo, elo_sigma, elo, elo_sigma)
         cursor.execute(sql_query)
@@ -1016,7 +1104,7 @@ def elo_calculus(wn, ln):
         elo_confidence_change.append(nt1[i].sigma - losing_team[i].sigma)
         name.append(ln[i])
         elo = nt1[i].mu
-        elo_sigma = nt1[i].sigma * (9 / 10)
+        elo_sigma = nt1[i].sigma * (19 / 20)
         sql_query = "INSERT INTO player (wc3_name,elo,elo_convergence) VALUES ('{}',{},{}) ON CONFLICT(wc3_name) DO UPDATE SET elo={}, elo_convergence={}"
         sql_query = sql_query.format(ln[i], elo, elo_sigma, elo, elo_sigma)
         cursor.execute(sql_query)
