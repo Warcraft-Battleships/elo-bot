@@ -52,7 +52,7 @@ NO_POWER_MSG = "You do not have enough power to perform such an action."
 
 start_elo = 25
 start_elo_convergence = 25 / 3
-trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=3, tau=3 / 2, draw_probability=0.99)
+trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=4, tau=1 / 2, draw_probability=0.01)
 trueenv.make_as_global()
 
 
@@ -920,14 +920,15 @@ def replay_parse(replay_response):
                 row = cursor.fetchone()
                 if row is not None:
                     pcount = pcount + 1
+                    if row[1] != 0:
+                        return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
                 else:
                     unregistered = unregistered + 1
                     pcount = pcount + 1
 
                 t0.append(player_info[i]['name'])
                 # n0.append(player_info[i]['name'])
-                if row[1] != 0:
-                    return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
+                
 
                 if player_info[i]['flags'][0] == 'winner':
                     winning_names.append(player_info[i]['name'])
@@ -942,11 +943,12 @@ def replay_parse(replay_response):
                 row = cursor.fetchone()
                 if row is not None:
                     pcount = pcount + 1
+                    if row[1] != 0:
+                        return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
                 else:
                     unregistered = unregistered + 1
                     pcount = pcount + 1
-                if row[1] != 0:
-                    return "This replay wont be parsed, it involve a suspended account : " + player_info[i]['name']
+                
                 t1.append(player_info[i]['name'])
                 # n1.append(player_info[i]['name'])
 
@@ -988,9 +990,15 @@ def replay_parse(replay_response):
     cursor = my_db.cursor()
     # by_player_parse
     for i in range(len(replay_response['body']['data']['game']['players'])):
-
+        
         player_data = replay_response['body']['data']['game']['players'][i]
         wc3_name = player_data['name']
+        
+        if i == 0:
+            players_string = "'" +  wc3_name + "'"
+        else:
+            players_string = players_string + ",'"  + wc3_name + "'"
+            
         if player_data['flags'][0] == 'winner':
             win = 1
         else:
@@ -1027,7 +1035,6 @@ def replay_parse(replay_response):
         logging.debug(params)
         cursor.execute(sql_query, params)
         logging.info(sql_query)
-
     duration = 0
     season = 0
     sql_query = "INSERT INTO crossfire_games " \
@@ -1035,9 +1042,13 @@ def replay_parse(replay_response):
                 "VALUES ({},'{}',{},{},'{}',{},'{}','{}','{}')"
     sql_query = sql_query.format(wc3stats_id, gn, valid, timestamp, duration,
                                  season, map_filename, map_checksum, replay_hash)
+    cursor.execute(sql_query)  
+    #decay
+    sql_query = "UPDATE player SET elo_convergence=elo_convergence+0.04 WHERE wc3_name NOT IN (" + players_string +")"
+    print(sql_query)
+    logging.debug(sql_query)
     cursor.execute(sql_query)
     my_db.commit()
-
     discord_message = f"Replay sent (map_id = {map_checksum}) => " \
                       f"https://wc3stats.com/games/{replay_response['body']['id']}"
     return discord_message
