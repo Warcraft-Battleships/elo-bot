@@ -52,6 +52,7 @@ NO_POWER_MSG = "You do not have enough power to perform such an action."
 
 start_elo = 25
 start_elo_convergence = 25 / 3
+decay_value = 6 #in minus elo per game
 trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=4, tau=1 / 2, draw_probability=0.01)
 trueenv.make_as_global()
 
@@ -1044,7 +1045,7 @@ def replay_parse(replay_response):
                                  season, map_filename, map_checksum, replay_hash)
     cursor.execute(sql_query)  
     #decay
-    sql_query = "UPDATE player SET elo_convergence=elo_convergence+0.04 WHERE wc3_name NOT IN (" + players_string +")"
+    sql_query = "UPDATE player SET elo_convergence=elo_convergence+" + str(round(decay_value/150,3)) + " WHERE wc3_name NOT IN (" + players_string +")"
     print(sql_query)
     logging.debug(sql_query)
     cursor.execute(sql_query)
