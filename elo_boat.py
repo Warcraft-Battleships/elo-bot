@@ -274,7 +274,10 @@ async def allstats(ctx):
 
 
 @client.command()
-async def stats(ctx):
+async def stats(ctx,season):
+    if season is None:
+        await ctx.channel.send("stats command only work if you specify correctly a season number as first argument")
+        return
     is_mention = False
 
     for _ in ctx.message.mentions:
@@ -302,8 +305,7 @@ async def stats(ctx):
         query = "SELECT SUM(1),SUM(win),SUM(kills),SUM(deaths),SUM(assists),SUM(APM)," \
                 "SUM(staypercent),SUM(creepkills),SUM(bounty),SUM(bountyfeed),SUM(goldgathered)," \
                 "SUM(dodosfound),SUM(chatcounter),SUM(kickcounter) FROM crossfire_stats WHERE game_id IN " \
-                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND map_checksum IN (SELECT wc3stats_checksum " \
-                "FROM map_files WHERE elo_rated = 1)) AND wc3_name = '" + \
+                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND season = " + season + ") AND wc3_name = '" + \
                 result[0] + "'"
         cursor.execute(query)
         row = cursor.fetchone()
@@ -1039,9 +1041,25 @@ def replay_parse(replay_response):
         logging.debug(sql_query)
         logging.debug(params)
         cursor.execute(sql_query, params)
+        #fast stats update
+        sql_query = "SELECT games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter FROM player WHERE wc3_name = ?"
+        params = [wc3_name]
+        print(sql_query)
+        print(params)
+        cursor.execute(sql_query, params)
+        row = cursor.fetchone()
+        sql_query = "UPDATE player SET games_played = ?,wins=?,bounty=?,bountyfeed=?,goldgathered=?,K=?,D=?,A=?,dodosfound=?,chatcounter=?,kickcounter=? WHERE wc3_name = ?"
+        params = [row[0]+1, row[1]+win, row[2]+bounty, row[3]+bountyfeed, row[4]+goldgathered, row[5]+kills, row[6]+deaths, row[7]+assists, row[8] + dodosfound, row[9] + chatcounter, row[10] + kickcounter, wc3_name]
+        cursor.execute(sql_query, params)
+        
         logging.info(sql_query)
     duration = 0
-    season = 0
+    
+    #get season
+    sql_query = "SELECT value FROM constants WHERE name = 'season'"
+    cursor.execute(query)
+    season  = cursor.fetchone()[0]
+    
     sql_query = "INSERT INTO crossfire_games " \
                 "(game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
                 "VALUES ({},'{}',{},{},'{}',{},'{}','{}','{}')"
@@ -1151,7 +1169,7 @@ async def new_season_flush():
             new_elo_convergence = start_elo_convergence
         new_elo_convergence = start_elo_convergence
         query = "UPDATE player SET elo = " + str(new_elo) + ",elo_convergence = " + str(
-            new_elo_convergence) + " WHERE wc3_name = '" + row[0] + "'"
+            new_elo_convergence) + ",games_played=0, wins=0, bounty=0, bountyfeed=0, goldgathered=0, K=0, D=0, A=0, dodosfound=0, chatcounter=0, kickcounter=0 WHERE wc3_name = '" + row[0] + "'"
         cursor2.execute(query)
         row = cursor.fetchone()
     query = "SELECT value FROM constants WHERE name = 'season'"
@@ -1159,6 +1177,7 @@ async def new_season_flush():
     row = cursor.fetchone()
     query = "UPDATE constants SET value = " + str(int(row[0]) + 1) + " WHERE name = 'season'"
     cursor.execute(query)
+    
     my_db.commit()
 
 
