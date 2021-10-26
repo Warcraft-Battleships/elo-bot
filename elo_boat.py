@@ -1122,7 +1122,8 @@ async def new_season(ctx):
 
     if big_decision_admin_count <= 0:
         await new_season_flush()
-        await ctx.channel.send("<:KEKW:693132898760523846>")
+        
+        await ctx.channel.send("It starts !")
     else:
         await ctx.channel.send(
             "Admin <@!" + str(ctx.author.id) + "> is asking for a new ranked season to start ! \nat least " + str(
@@ -1153,6 +1154,11 @@ async def new_season_flush():
             new_elo_convergence) + " WHERE wc3_name = '" + row[0] + "'"
         cursor2.execute(query)
         row = cursor.fetchone()
+    query = "SELECT value FROM constants WHERE name = 'season'"
+    cursor.execute(query)
+    row = cursor.fetchone()
+    query = "UPDATE constants SET value = " + str(int(row[0]) + 1) + " WHERE name = 'season'"
+    cursor.execute(query)
     my_db.commit()
 
 
