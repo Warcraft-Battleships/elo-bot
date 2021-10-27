@@ -684,8 +684,8 @@ async def up_leaderboard(ctx):
 
 async def leaderboard():
     channel = client.get_channel(leaderboard_channel_id)
-    msg = "```{:<9}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
-                "Place", "Elo", "Player", "Winrate", "Games", "Wins", "Loses")
+    msg = "```{:<9}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}{:<8}".format(
+                "Place", "Elo", "Player", "Winrate", "Games", "Wins", "Loses","Dodosfound")
 
     cursor = my_db.cursor()
     query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias " \
@@ -697,11 +697,16 @@ async def leaderboard():
         i = i + 1
         if row[1] is not None and row[2] is not None:
             win_lose_cursor = my_db.cursor()
-            win_lose_query = "SELECT count(CASE WHEN win = 1 then win end), count(CASE WHEN win = 0 then win end) FROM 'crossfire_stats' WHERE wc3_name = \"" + str(row[1]) + "\""
+            win_lose_query = "SELECT wins, games_played,dodosfound FROM player WHERE wc3_name = \"" + str(row[1]) + "\""
             win_lose_cursor.execute(win_lose_query)
-            win, lose = win_lose_cursor.fetchone()
-            msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
-                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % (win/(win + lose)*100)) + "%", str(win + lose), str(win), str(lose))
+            win, games_played,dodosfound = win_lose_cursor.fetchone()
+            lose = games_played-win
+            if games_played <= 0 :
+                winrate = 0
+            else:
+                winrate = (win/(win + lose)*100)
+            msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}{:<8}".format(
+                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % winrate) + "%", str(win + lose), str(win), str(lose),str(dodosfound))
         row = cursor.fetchone()
         if i % 5 == 0:
             msg += "```"
