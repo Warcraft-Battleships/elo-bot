@@ -274,10 +274,9 @@ async def allstats(ctx):
 
 
 @client.command()
-async def stats(ctx,season):
+async def stats(ctx,season=None):
     if season is None:
-        await ctx.channel.send("stats command only work if you specify correctly a season number as first argument")
-        return
+        season =  get_current_season()
     is_mention = False
 
     for _ in ctx.message.mentions:
@@ -1056,9 +1055,7 @@ def replay_parse(replay_response):
     duration = 0
     
     #get season
-    sql_query = "SELECT value FROM constants WHERE name = 'season'"
-    cursor.execute(query)
-    season  = cursor.fetchone()[0]
+    season = get_current_season()
     
     sql_query = "INSERT INTO crossfire_games " \
                 "(game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
@@ -1076,6 +1073,13 @@ def replay_parse(replay_response):
                       f"https://wc3stats.com/games/{replay_response['body']['id']}"
     return discord_message
 
+
+def get_current_season():
+        #get season
+    cursor = my_db.cursor()
+    sql_query = "SELECT value FROM constants WHERE name = 'season'"
+    cursor.execute(query)
+    return cursor.fetchone()[0]
 
 def elo_calculus(wn, ln):
     winning_team = []
