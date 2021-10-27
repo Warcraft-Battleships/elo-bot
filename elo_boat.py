@@ -348,12 +348,18 @@ async def stats(ctx,season=None):
 
 
 @client.command()
-async def add(ctx, wc3_name, alias=""):
+async def add(ctx, wc3_name, alias=None):
     global my_db
     name = ctx.message.author
     discord_id = ctx.message.author.id
     wc3_name = wc3_name.lower()
+    if alias is None:
+        alias = ""
+    elif any(not c.isalnum() for c in alias):
+        await ctx.channel.send("Aliases can only be alphanumeric")
+        return
     alias = alias.lower()
+    
     # check of database entry
     query = f"SELECT * FROM `player` WHERE `discord_id` = '{discord_id}'"
     cursor = my_db.cursor()
@@ -402,14 +408,19 @@ async def add(ctx, wc3_name, alias=""):
 
 
 @client.command()
-async def change_alias(ctx, al):
+async def change_alias(ctx, al = None):
     if "#" not in al and "@" not in al:
+        if al is None:
+            al = ""
+        elif any(not c.isalnum() for c in al):
+            await ctx.channel.send("Aliases can only be alphanumeric")
+            return
         al = al.lower()
         cursor = my_db.cursor()
 
         # check for duplicates
         # TODO make query being used
-        query = "SELECT alias from player WHERE alias = " + al
+        query = "SELECT alias FROM player WHERE alias = '" + al + "'"
         cursor.execute(query)
         row = cursor.fetchone()
 
