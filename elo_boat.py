@@ -695,8 +695,8 @@ async def up_leaderboard(ctx):
 
 async def leaderboard():
     channel = client.get_channel(leaderboard_channel_id)
-    msg = "```{:<9}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}{:<8}".format(
-                "Place", "Elo", "Player", "Winrate", "Games", "Wins", "Loses","Dodosfound")
+    msg = "```{:<9}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
+                "Place", "Elo", "Player", "Winrate", "Games", "Wins", "Loses")
 
     cursor = my_db.cursor()
     query = "SELECT discord_id,wc3_name,elo,elo_convergence,alias " \
@@ -716,8 +716,8 @@ async def leaderboard():
                 winrate = 0
             else:
                 winrate = (win/(win + lose)*100)
-            msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}{:<8}".format(
-                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % winrate) + "%", str(win + lose), str(win), str(lose),str(dodosfound))
+            msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
+                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % winrate) + "%", str(win + lose), str(win), str(lose))
         row = cursor.fetchone()
         if i % 5 == 0:
             msg += "```"
