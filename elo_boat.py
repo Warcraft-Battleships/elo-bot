@@ -304,7 +304,7 @@ async def stats(ctx,season=None):
         query = "SELECT SUM(1),SUM(win),SUM(kills),SUM(deaths),SUM(assists),SUM(APM)," \
                 "SUM(staypercent),SUM(creepkills),SUM(bounty),SUM(bountyfeed),SUM(goldgathered)," \
                 "SUM(dodosfound),SUM(chatcounter),SUM(kickcounter) FROM crossfire_stats WHERE game_id IN " \
-                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND season = " + season + ") AND wc3_name = '" + \
+                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND season = " + str(season) + ") AND wc3_name = '" + \
                 result[0] + "'"
         cursor.execute(query)
         row = cursor.fetchone()
