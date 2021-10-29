@@ -274,7 +274,9 @@ async def allstats(ctx):
 
 
 @client.command()
-async def stats(ctx):
+async def stats(ctx,season=None):
+    if season is None:
+        season =  get_current_season()
     is_mention = False
 
     for _ in ctx.message.mentions:
@@ -302,8 +304,7 @@ async def stats(ctx):
         query = "SELECT SUM(1),SUM(win),SUM(kills),SUM(deaths),SUM(assists),SUM(APM)," \
                 "SUM(staypercent),SUM(creepkills),SUM(bounty),SUM(bountyfeed),SUM(goldgathered)," \
                 "SUM(dodosfound),SUM(chatcounter),SUM(kickcounter) FROM crossfire_stats WHERE game_id IN " \
-                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND map_checksum IN (SELECT wc3stats_checksum " \
-                "FROM map_files WHERE elo_rated = 1)) AND wc3_name = '" + \
+                "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND season = " + season + ") AND wc3_name = '" + \
                 result[0] + "'"
         cursor.execute(query)
         row = cursor.fetchone()
@@ -347,12 +348,18 @@ async def stats(ctx):
 
 
 @client.command()
-async def add(ctx, wc3_name, alias=""):
+async def add(ctx, wc3_name, alias=None):
     global my_db
     name = ctx.message.author
     discord_id = ctx.message.author.id
     wc3_name = wc3_name.lower()
+    if alias is None:
+        alias = ""
+    elif any(not c.isalnum() for c in alias):
+        await ctx.channel.send("Aliases can only be alphanumeric")
+        return
     alias = alias.lower()
+    
     # check of database entry
     query = f"SELECT * FROM `player` WHERE `discord_id` = '{discord_id}'"
     cursor = my_db.cursor()
@@ -401,14 +408,19 @@ async def add(ctx, wc3_name, alias=""):
 
 
 @client.command()
-async def change_alias(ctx, al):
+async def change_alias(ctx, al = None):
     if "#" not in al and "@" not in al:
+        if al is None:
+            al = ""
+        elif any(not c.isalnum() for c in al):
+            await ctx.channel.send("Aliases can only be alphanumeric")
+            return
         al = al.lower()
         cursor = my_db.cursor()
 
         # check for duplicates
         # TODO make query being used
-        query = "SELECT alias from player WHERE alias = " + al
+        query = "SELECT alias FROM player WHERE alias = '" + al + "'"
         cursor.execute(query)
         row = cursor.fetchone()
 
@@ -696,11 +708,16 @@ async def leaderboard():
         i = i + 1
         if row[1] is not None and row[2] is not None:
             win_lose_cursor = my_db.cursor()
-            win_lose_query = "SELECT count(CASE WHEN win = 1 then win end), count(CASE WHEN win = 0 then win end) FROM 'crossfire_stats' WHERE wc3_name = \"" + str(row[1]) + "\""
+            win_lose_query = "SELECT wins, games_played,dodosfound FROM player WHERE wc3_name = \"" + str(row[1]) + "\""
             win_lose_cursor.execute(win_lose_query)
-            win, lose = win_lose_cursor.fetchone()
+            win, games_played,dodosfound = win_lose_cursor.fetchone()
+            lose = games_played-win
+            if games_played <= 0 :
+                winrate = 0
+            else:
+                winrate = (win/(win + lose)*100)
             msg += "\n#{:<8}{:<10}{:<40}{:<11}{:<8}{:<8}{:<8}".format(
-                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % (win/(win + lose)*100)) + "%", str(win + lose), str(win), str(lose))
+                str(i), str(disp_elo(row[2], row[3])), row[1] + " (" + str(row[4]) + ")", str("%.2f" % winrate) + "%", str(win + lose), str(win), str(lose))
         row = cursor.fetchone()
         if i % 5 == 0:
             msg += "```"
@@ -1039,9 +1056,23 @@ def replay_parse(replay_response):
         logging.debug(sql_query)
         logging.debug(params)
         cursor.execute(sql_query, params)
+        #fast stats update
+        sql_query = "SELECT games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter FROM player WHERE wc3_name = ?"
+        params = [wc3_name]
+        print(sql_query)
+        print(params)
+        cursor.execute(sql_query, params)
+        row = cursor.fetchone()
+        sql_query = "UPDATE player SET games_played = ?,wins=?,bounty=?,bountyfeed=?,goldgathered=?,K=?,D=?,A=?,dodosfound=?,chatcounter=?,kickcounter=? WHERE wc3_name = ?"
+        params = [row[0]+1, row[1]+win, row[2]+bounty, row[3]+bountyfeed, row[4]+goldgathered, row[5]+kills, row[6]+deaths, row[7]+assists, row[8] + dodosfound, row[9] + chatcounter, row[10] + kickcounter, wc3_name]
+        cursor.execute(sql_query, params)
+        
         logging.info(sql_query)
     duration = 0
-    season = 0
+    
+    #get season
+    season = get_current_season()
+    
     sql_query = "INSERT INTO crossfire_games " \
                 "(game_id,name,valid,timestamp,duration,season,filename,map_checksum,replay_hash) " \
                 "VALUES ({},'{}',{},{},'{}',{},'{}','{}','{}')"
@@ -1058,6 +1089,13 @@ def replay_parse(replay_response):
                       f"https://wc3stats.com/games/{replay_response['body']['id']}"
     return discord_message
 
+
+def get_current_season():
+        #get season
+    cursor = my_db.cursor()
+    sql_query = "SELECT value FROM constants WHERE name = 'season'"
+    cursor.execute(query)
+    return cursor.fetchone()[0]
 
 def elo_calculus(wn, ln):
     winning_team = []
@@ -1122,7 +1160,8 @@ async def new_season(ctx):
 
     if big_decision_admin_count <= 0:
         await new_season_flush()
-        await ctx.channel.send("<:KEKW:693132898760523846>")
+        
+        await ctx.channel.send("It starts !")
     else:
         await ctx.channel.send(
             "Admin <@!" + str(ctx.author.id) + "> is asking for a new ranked season to start ! \nat least " + str(
@@ -1150,9 +1189,15 @@ async def new_season_flush():
             new_elo_convergence = start_elo_convergence
         new_elo_convergence = start_elo_convergence
         query = "UPDATE player SET elo = " + str(new_elo) + ",elo_convergence = " + str(
-            new_elo_convergence) + " WHERE wc3_name = '" + row[0] + "'"
+            new_elo_convergence) + ",games_played=0, wins=0, bounty=0, bountyfeed=0, goldgathered=0, K=0, D=0, A=0, dodosfound=0, chatcounter=0, kickcounter=0 WHERE wc3_name = '" + row[0] + "'"
         cursor2.execute(query)
         row = cursor.fetchone()
+    query = "SELECT value FROM constants WHERE name = 'season'"
+    cursor.execute(query)
+    row = cursor.fetchone()
+    query = "UPDATE constants SET value = " + str(int(row[0]) + 1) + " WHERE name = 'season'"
+    cursor.execute(query)
+    
     my_db.commit()
 
 
