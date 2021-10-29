@@ -1094,7 +1094,7 @@ def get_current_season():
         #get season
     cursor = my_db.cursor()
     sql_query = "SELECT value FROM constants WHERE name = 'season'"
-    cursor.execute(query)
+    cursor.execute(sql_query)
     return cursor.fetchone()[0]
 
 def elo_calculus(wn, ln):
