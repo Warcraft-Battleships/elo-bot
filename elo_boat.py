@@ -389,12 +389,12 @@ async def add(ctx, wc3_name, alias=None):
         await ctx.send(f"Alias: **{alias}** is already added.")
         return
     if len(alias) > 0:
-        query = f"INSERT INTO player (discord_id, wc3_name, alias) VALUES ({discord_id}, '{wc3_name}', '{alias}')" \
+        query = f"INSERT INTO player (discord_id, wc3_name, alias,games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter) VALUES ({discord_id}, '{wc3_name}', '{alias}',0,0,0,0,0,0,0,0,0,0,0)" \
                 f" ON CONFLICT(wc3_name) DO" \
                 f" UPDATE SET discord_id = {discord_id}, wc3_name = '{wc3_name}', alias = '{alias}'"
         success_message = f"Discord User: **{name}** added Warcraft Account: **{wc3_name}** and alias: **{alias}**"
     else:
-        query = f"INSERT INTO player (discord_id, wc3_name) VALUES ({discord_id}, '{wc3_name}')" \
+        query = f"INSERT INTO player (discord_id, wc3_name,games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter) VALUES ({discord_id}, '{wc3_name}',0,0,0,0,0,0,0,0,0,0,0)" \
                 f" ON CONFLICT(wc3_name) DO UPDATE SET discord_id = {discord_id}, wc3_name = '{wc3_name}'"
         success_message = f"Discord User: **{name}** added Warcraft Account: **{wc3_name}**"
     try:
@@ -1025,22 +1025,22 @@ def replay_parse(replay_response):
             win = 1
         else:
             win = 0
-        staypercent = player_data['stayPercent']
-        APM = player_data['apm']
+        staypercent = ensure_positive_value(player_data['stayPercent'])
+        APM = ensure_positive_value(player_data['apm'])
 
         mmd = player_data['variables']
-
-        goldgathered = mmd['goldgathered']
-        creepkills = mmd['creepkills']
-        lumbergathered = mmd['lumbergathered']
-        deaths = mmd['deaths']
-        kickcounter = mmd['kickcounter']
-        bounty = mmd['bounty']
-        bountyfeed = mmd['bountyfeed']
-        kills = mmd['kills']
-        assists = mmd['assists']
-        dodosfound = mmd['dodosfound']
-        chatcounter = mmd['chatcounter']
+        
+        goldgathered = ensure_positive_value(mmd['goldgathered'])
+        creepkills = ensure_positive_value(mmd['creepkills'])
+        lumbergathered = ensure_positive_value(mmd['lumbergathered'])
+        deaths = ensure_positive_value(mmd['deaths'])
+        kickcounter = ensure_positive_value(mmd['kickcounter'])
+        bounty = ensure_positive_value(mmd['bounty'])
+        bountyfeed = -ensure_positive_value(-mmd['bountyfeed'])
+        kills = ensure_positive_value(mmd['kills'])
+        assists = ensure_positive_value(mmd['assists'])
+        dodosfound = ensure_positive_value(mmd['dodosfound'])
+        chatcounter = ensure_positive_value(mmd['chatcounter'])
         shiplist = mmd['shiplist']
 
         # TODO why set sql_query twice here?
@@ -1199,8 +1199,40 @@ async def new_season_flush():
     cursor.execute(query)
     
     my_db.commit()
-
-
+   
+    
+@client.command()
+async def alter_player(ctx,wc3_name,column,value):
+    if await not_admin(ctx):
+        return
+    cursor = my_db.cursor()
+    query = "UPDATE player SET " + column + " = " + value + " WHERE wc3_name = '" + wc3_name +"'"
+    try:
+        cursor.execute(query)
+        my_db.commit()
+        await ctx.send("Done")
+    except Exception as e:
+        print(e)
+        await ctx.send("Executing sql failed")
+        
+@client.command()
+async def sql(ctx,statement):
+    if await not_admin(ctx):
+        return
+    cursor = my_db.cursor()
+    try:
+        cursor.execute(statement)
+        my_db.commit()
+        await ctx.send("Success")
+    except Exception as e:
+        print(e)
+        await ctx.send("Executing sql failed")
+        
+def ensure_positive_value(value):
+    if value is None or value <0:
+        return 0
+    else:
+        return value
 # =============================================================/archi
 # =============================================================/archi
 # =============================================================/archi
