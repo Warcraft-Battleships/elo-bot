@@ -85,6 +85,7 @@ async def help(ctx, *command):
         if command == "stats":
             add_text = "**?stats** <player> <season>\n\n" \
                        "Display the stats for a ranked season\n" \
+                       "If not provided shows your own stats for the current season\n" \
                        "**<player>** (optional) - picked player" \
                        "**<season>** (optional) - picked season"
         if command == "allstats":
@@ -246,12 +247,12 @@ async def allstats(ctx):
             total_creepkill = row[7]
             total_bounty = row[8]
             total_bountyfeed = row[9]
-            # total_goldgathered = row[10]
-            # total_dodosfound = row[11]
+            total_goldgathered = row[10]
+            total_dodosfound = row[11]
             total_chatcounter = row[12]
-            # total_kickcounter = row[13]
+            total_kickcounter = row[13]
             KD = round(total_kills / total_death, 2)
-            # mean_assist = round(total_assist / total_games, 2)
+            mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
             MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
 
@@ -321,12 +322,12 @@ async def stats(ctx, season=None):
             total_creepkill = row[7]
             total_bounty = row[8]
             total_bountyfeed = row[9]
-            # total_goldgathered = row[10]
-            # total_dodosfound = row[11]
+            total_goldgathered = row[10]
+            total_dodosfound = row[11]
             total_chatcounter = row[12]
-            # total_kickcounter = row[13]
+            total_kickcounter = row[13]
             KD = round(total_kills / total_death, 2)
-            # mean_assist = round(total_assist / total_games, 2)
+            mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
             MGB = round((total_bounty - total_bountyfeed) / total_games, 0)
 
