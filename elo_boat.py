@@ -47,7 +47,7 @@ admin_channel_id = params.admin_channel_id
 _guild = None
 baseurl = "https://api.wc3stats.com"
 upload_channel = None
-NO_POWER_MSG = "You do not have enough power to perform such an action."
+NO_POWER_MSG = "You do not have permission to use this command."
 
 start_elo = 25
 start_elo_convergence = 25 / 3
@@ -109,7 +109,7 @@ async def help(ctx, *command):
                        "**delete_account**: remove your account\n**stats**: display stats of the current season\n" \
                        "**allstats**: shows full stats\n**draft**: captains mode"
         # Admin only
-        if not await not_admin(ctx):
+        if not await not_admin(ctx, False):
             command_text += "\n\n**Admin only**\n**new_season**: starts a new season\n" \
                             "**maps**: returns info about the map file\n**add_map**: updates the current map file\n" \
                             "**remove_map**: delete a map file from the allowed list\n**up_leaderboard**: " \
@@ -736,9 +736,10 @@ def disp_elo(player_elo, convergence):
 # ==============================================================================archi
 
 # TODO there is a decorator for this @role=admin or so
-async def not_admin(ctx):
+async def not_admin(ctx, display=True):
     if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
-        await ctx.channel.send(NO_POWER_MSG)
+        if display:
+            await ctx.channel.send(NO_POWER_MSG)
         return True
 
 
