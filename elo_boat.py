@@ -858,7 +858,7 @@ async def post_replay(replay):
     file_dic = {
         "file": replay,
     }
-    r = requests.post(baseurl + "/upload/4a7136cc", files=file_dic)
+    r = requests.post(baseurl + "/upload", files=file_dic)
     replay_response = json.loads(r.text)
     print(replay_response)
     if r.status_code == 200:
