@@ -13,7 +13,6 @@ import math
 import random
 import csv
 import datetime
-
 import params
 
 # discord_related
@@ -47,7 +46,7 @@ admin_channel_id = params.admin_channel_id
 _guild = None
 baseurl = "https://api.wc3stats.com"
 upload_channel = None
-NO_POWER_MSG = "You do not have permission to use this command."
+NO_POWER_MSG = "You do not have enough power to perform such an action."
 
 start_elo = 25
 start_elo_convergence = 25 / 3
@@ -109,7 +108,7 @@ async def help(ctx, *command):
                        "**delete_account**: remove your account\n**stats**: display stats of the current season\n" \
                        "**allstats**: shows full stats\n**draft**: captains mode"
         # Admin only
-        if not await not_admin(ctx, False):
+        if not await not_admin(ctx):
             command_text += "\n\n**Admin only**\n**new_season**: starts a new season\n" \
                             "**maps**: returns info about the map file\n**add_map**: updates the current map file\n" \
                             "**remove_map**: delete a map file from the allowed list\n**up_leaderboard**: " \
@@ -206,7 +205,6 @@ async def elo(ctx):
 @client.command()
 async def allstats(ctx):
     is_mention = False
-
     for _ in ctx.message.mentions:
         # get someone stats
         is_mention = True
@@ -444,110 +442,104 @@ async def delete_account(ctx):
 async def balance(ctx, *players):
     ELO = []
 
-    # If all players are in the Elobot Voice channel
+    # TODO: If all players are in the Elobot Voice channel
     if len(players) == 0:
         print(client.get_channel(elo_bot_voicechat_id).members)
         return
 
-    if len(players) % 2 == 0:
-        if len(list(players)) != len(set(players)):
-            await ctx.send("Duplicate found")
-            return
-        for player in players:
-            # player is alias
-            if "#" in player:
-                # player is wc3name
-                player = player.lower()
-                query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player}'"
-                cursor = my_db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-                if result is not None:
-                    if result[2] != 0:
-                        await ctx.channel.send("Cannot balance this game : account " + player + " has been suspended")
-                        return
-                    ELO.append([player, trueenv.Rating(result[0], result[1])])
-                else:
-                    # using default ELO
-                    await ctx.send(f"**{player}** was not found, using fresh new player elo for that player")
-                    ELO.append([player, trueenv.Rating(start_elo, start_elo_convergence)])
-            elif "<@!" in player:
-                # mention
-                pass
-            else:
-                # alias
-                player = player.lower()
-                query = f"SELECT wc3_name,elo,elo_convergence,suspended FROM `player` WHERE `alias` = '{player}'"
-                cursor = my_db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-                if result is None:
-                    await ctx.send(f"**{player}** was not found, using fresh new player elo for that player")
+    if len(players) % 2 != 0:
+        await ctx.send("Enter a even number of players")
+        return
 
-                    ELO.append([player, trueenv.Rating(start_elo, start_elo_convergence)])
-                else:
-                    if result[3] != 0:
-                        await ctx.channel.send("Cannot balance this game : account " + result[0] + " has been suspended")
-                        return
-                    print(result)
-                    ELO.append([result[0], trueenv.Rating(result[1], result[2])])
+    if len(list(players)) != len(set(players)):
+        await ctx.send("Duplicate found")
+        return
 
-        for mention in ctx.message.mentions:
-            query = "SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = " + str(mention.id)
+    for player in players:
+
+        # player is wc3name
+        if "#" in player:
+            query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player.lower()}'"
             cursor = my_db.cursor()
             cursor.execute(query)
-            row = cursor.fetchone()
-            print(row)
-            if row is not None:
-                if row[3] != 0:
-                    await ctx.channel.send("Cannot balance this game : account " + row[2] + " has been suspended")
+            result = cursor.fetchone()
+            if result is not None:
+                if result[2] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + player + "** has been suspended")
                     return
-                ELO.append([row[2], trueenv.Rating(row[0], row[1])])
+                ELO.append([player, trueenv.Rating(result[0], result[1])])
             else:
-                await ctx.send(
-                    "player " + mention.display_name + " was not found, using fresh new player elo for that player")
-                ELO.append([mention.display_name, trueenv.Rating(start_elo, start_elo_convergence)])
+                await ctx.send(f"**{player}** was not found.")
+                return
 
-        # NOW BALANCE IT PROPERLY
+        # player is a mention
+        elif not (not ("<@" in player) or "<@&" in player):
+            player_id = player[2:-1]
+            query = f"SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = {player_id}"
+            cursor = my_db.cursor()
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result is not None:
+                if result[3] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + result[2] + "** has been suspended")
+                    return
+                ELO.append([result[2], trueenv.Rating(result[0], result[1])])
+            else:
+                await ctx.send(f"**{player}** was not found.")
+                return
 
-        score = []
-        nit = sum(1 for _ in combinations(ELO, int(len(ELO) / 2)))
-        i = 0
-        for team_a in combinations(ELO, int(len(ELO) / 2)):
-            i = i + 1
-            if i > nit / 2:
-                break
-            team_b = remove_from(ELO.copy(), team_a)
-            score.append([trueenv.quality([[item[1] for item in team_a], [item[1] for item in team_b]]),
-                          [item[0] for item in team_a], [item[0] for item in team_b], [item[1] for item in team_a],
-                          [item[1] for item in team_b]])
-
-        sorted_teams_by_score = sorted(score, key=balance_sorting_key, reverse=True)
-        best_team_a = sorted_teams_by_score[0][1]
-        best_team_b = sorted_teams_by_score[0][2]
-        elo_a = sorted_teams_by_score[0][3]
-        elo_b = sorted_teams_by_score[0][4]
-        northplayers = ""
-        southplayers = ""
-        i = 0
-        for player in best_team_a:
-            northplayers += f'- {player} (' + str(disp_elo(elo_a[i].mu, elo_a[i].sigma)) + ') -'
-            i = i + 1
-        i = 0
-        for player in best_team_b:
-            southplayers += f'- {player} (' + str(disp_elo(elo_b[i].mu, elo_b[i].sigma)) + ') -'
-            i = i + 1
-        NS = bool(random.randint(0, 1))
-        if NS:
-            await ctx.send(
-                f"```md\n<North>\n{northplayers}\n\n<South> \n{southplayers}\n\n"
-                f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
+        # treating everything else as alias
         else:
-            await ctx.send(
-                f"```md\n<North>\n{southplayers}\n\n<South> \n{northplayers}\n\n"
-                f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
+            query = f"SELECT wc3_name,elo,elo_convergence,suspended FROM `player` WHERE `alias` = '{player.lower()}'"
+            cursor = my_db.cursor()
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result is None:
+                await ctx.send(f"**{player}** was not found.")
+                return
+            else:
+                if result[3] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + result[0] + "** has been suspended")
+                    return
+                ELO.append([result[0], trueenv.Rating(result[1], result[2])])
+
+    # NOW BALANCE IT PROPERLY
+    score = []
+    nit = sum(1 for _ in combinations(ELO, int(len(ELO) / 2)))
+    i = 0
+    for team_a in combinations(ELO, int(len(ELO) / 2)):
+        i = i + 1
+        if i > nit / 2:
+            break
+        team_b = remove_from(ELO.copy(), team_a)
+        score.append([trueenv.quality([[item[1] for item in team_a], [item[1] for item in team_b]]),
+                      [item[0] for item in team_a], [item[0] for item in team_b], [item[1] for item in team_a],
+                      [item[1] for item in team_b]])
+
+    sorted_teams_by_score = sorted(score, key=balance_sorting_key, reverse=True)
+    best_team_a = sorted_teams_by_score[0][1]
+    best_team_b = sorted_teams_by_score[0][2]
+    elo_a = sorted_teams_by_score[0][3]
+    elo_b = sorted_teams_by_score[0][4]
+    northplayers = ""
+    southplayers = ""
+    i = 0
+    for player in best_team_a:
+        northplayers += f'- {player} (' + str(disp_elo(elo_a[i].mu, elo_a[i].sigma)) + ') -'
+        i = i + 1
+    i = 0
+    for player in best_team_b:
+        southplayers += f'- {player} (' + str(disp_elo(elo_b[i].mu, elo_b[i].sigma)) + ') -'
+        i = i + 1
+    NS = bool(random.randint(0, 1))
+    if NS:
+        await ctx.send(
+            f"```md\n<North>\n{northplayers}\n\n<South> \n{southplayers}\n\n"
+            f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
     else:
-        await ctx.send("Enter a even number of players")
+        await ctx.send(
+            f"```md\n<North>\n{southplayers}\n\n<South> \n{northplayers}\n\n"
+            f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
 
 
 def balance_sorting_key(elem):
@@ -735,11 +727,9 @@ def disp_elo(player_elo, convergence):
 # ==============================================================================archi
 # ==============================================================================archi
 
-# TODO there is a decorator for this @role=admin or so
-async def not_admin(ctx, display=True):
+async def not_admin(ctx):
     if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
-        if display:
-            await ctx.channel.send(NO_POWER_MSG)
+        await ctx.channel.send(NO_POWER_MSG)
         return True
 
 
@@ -859,7 +849,7 @@ async def post_replay(replay):
     file_dic = {
         "file": replay,
     }
-    r = requests.post(baseurl + "/upload/4a7136cc", files=file_dic)
+    r = requests.post(baseurl + "/upload", files=file_dic)
     replay_response = json.loads(r.text)
     print(replay_response)
     if r.status_code == 200:
