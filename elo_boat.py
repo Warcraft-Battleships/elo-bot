@@ -120,7 +120,7 @@ async def help(ctx, *command):
                        "**delete_account**: remove your account\n**stats**: display stats of the current season\n" \
                        "**allstats**: shows full stats\n**draft**: captains mode"
         # Admin only
-        if not await not_admin(ctx):
+        if not await not_admin(ctx, False):
             command_text += "\n\n**Admin only**\n**new_season**: starts a new season\n" \
                             "**maps**: returns info about the map file\n**add_map**: updates the current map file\n" \
                             "**remove_map**: delete a map file from the allowed list\n**up_leaderboard**: " \
@@ -747,9 +747,10 @@ def disp_elo(player_elo, convergence):
 # ==============================================================================archi
 # ==============================================================================archi
 
-async def not_admin(ctx):
+async def not_admin(ctx, display_message=True):
     if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
-        await ctx.channel.send(NO_POWER_MSG)
+        if display_message:
+            await ctx.channel.send(NO_POWER_MSG)
         return True
 
 
