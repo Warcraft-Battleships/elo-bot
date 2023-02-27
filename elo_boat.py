@@ -377,13 +377,14 @@ async def add(ctx, wc3_name, alias=None):
         await ctx.send(f"Warcraft Account: **{wc3_name}** is already added.")
         return
     # check for alias
-    query = f"SELECT * FROM `player` WHERE `alias` = '{alias}'"
-    cursor = my_db.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()
-    if len(result) > 0:
-        await ctx.send(f"Alias: **{alias}** is already added.")
-        return
+    if alias != "":
+        query = f"SELECT * FROM `player` WHERE `alias` = '{alias}'"
+        cursor = my_db.cursor()
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if len(result) > 0:
+            await ctx.send(f"Alias: **{alias}** is already added.")
+            return
     if len(alias) > 0:
         query = f"INSERT INTO player (discord_id, wc3_name, alias,games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter) VALUES ({discord_id}, '{wc3_name}', '{alias}',0,0,0,0,0,0,0,0,0,0,0)" \
                 f" ON CONFLICT(wc3_name) DO" \
