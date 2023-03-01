@@ -1,15 +1,18 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import requests
 import os
 from itertools import combinations
 import sqlite3
+from dateutil.parser import parse
 import logging
 import json
 import trueskill
 import sys
+import math
 import random
 import csv
+import datetime
 import params
 
 # discord_related
@@ -51,13 +54,13 @@ trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=4,
 trueenv.make_as_global()
 
 
-def is_mention(text):
+def is_mention_format(text):
     if "<@" in text and "<@&" not in text and any(i.isdigit() for i in text):
         return True
     return False
 
 
-def is_warcraft_name(text):
+def is_warcraft_name_format(text):
     if "#" in text and "@" not in text and any(i.isdigit() for i in text):
         return True
     return False
@@ -156,11 +159,11 @@ async def ban(ctx, player):
     if await not_admin(ctx):
         return
 
-    if is_mention(player):
+    if is_mention_format(player):
         discord_id = player[2:-1]
         check_query = "SELECT rowid FROM player WHERE discord_id = '" + str(discord_id)+"'"
         ban_query = "UPDATE player SET suspended = 1 WHERE discord_id = '" + str(discord_id) + "'"
-    elif is_warcraft_name(player):
+    elif is_warcraft_name_format(player):
         check_query = "SELECT rowid FROM player WHERE wc3_name = '" + str(player) + "'"
         ban_query = "UPDATE player SET suspended = 1 WHERE wc3_name = '" + str(player) + "'"
     else:
@@ -185,11 +188,11 @@ async def unban(ctx, player):
     if await not_admin(ctx):
         return
 
-    if is_mention(player):
+    if is_mention_format(player):
         discord_id = player[2:-1]
         check_query = "SELECT rowid FROM player WHERE discord_id = '" + str(discord_id) + "'"
         ban_query = "UPDATE player SET suspended = 0 WHERE discord_id = '" + str(discord_id) + "'"
-    elif is_warcraft_name(player):
+    elif is_warcraft_name_format(player):
         check_query = "SELECT rowid FROM player WHERE wc3_name = '" + str(player) + "'"
         ban_query = "UPDATE player SET suspended = 0 WHERE wc3_name = '" + str(player) + "'"
     else:
@@ -213,10 +216,10 @@ async def unban(ctx, player):
 async def elo(ctx, player=None):
     if player is None:
         query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE discord_id = {ctx.author.id}"
-    elif is_mention(player):
+    elif is_mention_format(player):
         discord_id = player[2:-1]
         query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE discord_id = {discord_id}"
-    elif is_warcraft_name(player):
+    elif is_warcraft_name_format(player):
         query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE wc3_name = '{player.lower()}'"
     else:
         query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE alias = '{player.lower()}'"
@@ -239,10 +242,10 @@ async def elo(ctx, player=None):
 async def allstats(ctx, player=None):
     if player is None:
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {ctx.author.id}"
-    elif is_mention(player):
+    elif is_mention_format(player):
         discord_id = player[2:-1]
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {discord_id}"
-    elif is_warcraft_name(player):
+    elif is_warcraft_name_format(player):
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE wc3_name = '{player.lower()}'"
     else:
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE alias = '{player.lower()}'"
@@ -305,10 +308,10 @@ async def stats(ctx, player=None, season=None):
 
     if player is None:
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {ctx.author.id}"
-    elif is_mention(player):
+    elif is_mention_format(player):
         discord_id = player[2:-1]
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {discord_id}"
-    elif is_warcraft_name(player):
+    elif is_warcraft_name_format(player):
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE wc3_name = '{player.lower()}'"
     else:
         query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE alias = '{player.lower()}'"
@@ -379,7 +382,7 @@ async def add(ctx, wc3_name, alias=None):
     if wc3_name == name.lower():
         await ctx.send("Use your Wacraft3 name and not your discord name\nUse ?help add for more information")
         return
-    if not is_warcraft_name(wc3_name):
+    if not is_warcraft_name_format(wc3_name):
         await ctx.send("You are not using a Warcraft3 account. It needs to contain \"#XXXX\"")
         return
     # check of database entry
@@ -481,7 +484,7 @@ async def balance(ctx, *players):
     for player in players:
 
         # player is wc3name
-        if is_warcraft_name(player):
+        if is_warcraft_name_format(player):
             query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player.lower()}'"
             cursor = my_db.cursor()
             cursor.execute(query)
@@ -496,7 +499,7 @@ async def balance(ctx, *players):
                 return
 
         # player is a mention
-        elif is_mention(player):
+        elif is_mention_format(player):
             player_id = player[2:-1]
             query = f"SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = {player_id}"
             cursor = my_db.cursor()
