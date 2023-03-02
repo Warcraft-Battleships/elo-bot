@@ -13,7 +13,6 @@ import math
 import random
 import csv
 import datetime
-
 import params
 
 # discord_related
@@ -22,15 +21,14 @@ logging.basicConfig(filename='elobot.log', level=logging.INFO, format='%(asctime
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 # db_related
-conn = sqlite3.connect('battleships.db')
-my_db = conn
+my_db = sqlite3.connect('battleships.db')
 valid_mapfile_checksums = [
     2602508443
 ]
 
 # invite url = https://discord.com/api/oauth2/authorize?client_id=777897409161723964&permissions=8&scope=bot
 with open('token.txt') as f:
-    token = f.read()
+    TOKEN = f.read()
 
 intents = discord.Intents.all()
 client = discord.ext.commands.Bot(command_prefix='?', case_insensitive=True, intents=intents)
@@ -56,6 +54,18 @@ trueenv = trueskill.TrueSkill(mu=start_elo, sigma=start_elo_convergence, beta=4,
 trueenv.make_as_global()
 
 
+def is_mention_format(text):
+    if "<@" in text and "<@&" not in text and any(i.isdigit() for i in text):
+        return True
+    return False
+
+
+def is_warcraft_name_format(text):
+    if "#" in text and "@" not in text and any(i.isdigit() for i in text):
+        return True
+    return False
+
+
 @client.command()
 async def help(ctx, *command):
     if len(command) > 0:
@@ -64,7 +74,11 @@ async def help(ctx, *command):
             add_text = "**?add** <Battle.net tag> <Alias>\n\n" \
                        "If you need help with your Battle.net tag type ?help bnet\n" \
                        "**<Battle.net tag>** - Example: User#1234\n" \
-                       "**<Alias>** - Can be used for commands, can be freely chosen"
+                       "**<Alias>** (optional) - Can be used for commands, can be freely chosen"
+        if command == "elo":
+            add_text = "**?elo** <Player>\n\n" \
+                       "Displays the elo for the current season\n" \
+                       "**<Player>** (optional) - Accepts Wacraft3 name, discord mention or alias"
         if command == "bnet":
             add_text = "1. Open the Battle.net app on your computer\n" \
                        "2. Click on your profile\n"
@@ -73,9 +87,9 @@ async def help(ctx, *command):
         if command == "remove_map":
             add_text = "**?remove_map** <wc3stats_map_checksum>\n"
         if command == "balance":
-            add_text = "**?balance** <Battle.net Tag> <...> <...> <Battle.net Tag>\n\n" \
+            add_text = "**?balance** <Player 1> <...> <...> <Player X>\n\n" \
                        "Balances the given players into two teams according to their elo\n" \
-                       "**<Battle.net Tag>** - Has to be a even number, can also be the alias of the player"
+                       "**<Player>** - Accepts Wacraft3 name, discord mention or alias"
         if command == "change_alias":
             add_text = "**?change_alias** <Alias>\n\n" \
                        "Replace your alias with a new alias"
@@ -86,7 +100,7 @@ async def help(ctx, *command):
             add_text = "**?stats** <player> <season>\n\n" \
                        "Display the stats for a ranked season\n" \
                        "If not provided shows your own stats for the current season\n" \
-                       "**<player>** (optional) - picked player" \
+                       "**<player>** (optional) - picked player\n" \
                        "**<season>** (optional) - picked season"
         if command == "allstats":
             add_text = "**?allstats** <player>\n\n" \
@@ -109,7 +123,7 @@ async def help(ctx, *command):
                        "**delete_account**: remove your account\n**stats**: display stats of the current season\n" \
                        "**allstats**: shows full stats\n**draft**: captains mode"
         # Admin only
-        if not await not_admin(ctx):
+        if not await not_admin(ctx, False):
             command_text += "\n\n**Admin only**\n**new_season**: starts a new season\n" \
                             "**maps**: returns info about the map file\n**add_map**: updates the current map file\n" \
                             "**remove_map**: delete a map file from the allowed list\n**up_leaderboard**: " \
@@ -121,14 +135,6 @@ async def help(ctx, *command):
         await ctx.send(embed=embed)
 
 
-async def def_elo(ctx, value):
-    new_elo = value
-    cursor = my_db.cursor()
-    query = "UPDATE player SET elo = " + str(new_elo) + " WHERE discord_id = " + str(ctx.author.id)
-    cursor.execute(query)
-    my_db.commit()
-
-
 @client.command()
 async def list_bans(ctx):
     if await not_admin(ctx):
@@ -136,12 +142,12 @@ async def list_bans(ctx):
     cursor = my_db.cursor()
     query = "SELECT wc3_name FROM player WHERE suspended = 1"
     cursor.execute(query)
-    row = cursor.fetchone()
-    if row is not None:
+    result = cursor.fetchone()
+    if result is not None:
         msg = "These players are currently suspended : \n"
-        while row is not None:
-            msg = msg + row[0] + "\n"
-            row = cursor.fetchone()
+        while result is not None:
+            msg = msg + result[0] + "\n"
+            result = cursor.fetchone()
     else:
         msg = "Nobody is banned atm ! awesome community =]"
 
@@ -149,76 +155,100 @@ async def list_bans(ctx):
 
 
 @client.command()
-async def ban(ctx, wc3_name):
+async def ban(ctx, player):
     if await not_admin(ctx):
         return
-    cursor = my_db.cursor()
-    test = "SELECT rowid FROM player WHERE wc3_name = '" + str(wc3_name)+"'"
-    cursor.execute(test)
-    row = cursor.fetchone()
-    channel = await ctx.author.create_dm()
-    if row is not None:
-        query = "UPDATE player SET suspended = " + str(1) + " WHERE wc3_name = '" + str(wc3_name) + "'"
-        cursor.execute(query)
-        my_db.commit()
-        await channel.send("Successfully banned player " + str(wc3_name))
+
+    if is_mention_format(player):
+        discord_id = player[2:-1]
+        check_query = "SELECT rowid FROM player WHERE discord_id = '" + str(discord_id)+"'"
+        ban_query = "UPDATE player SET suspended = 1 WHERE discord_id = '" + str(discord_id) + "'"
+    elif is_warcraft_name_format(player):
+        check_query = "SELECT rowid FROM player WHERE wc3_name = '" + str(player) + "'"
+        ban_query = "UPDATE player SET suspended = 1 WHERE wc3_name = '" + str(player) + "'"
     else:
-        await channel.send("Player not found")
+        check_query = "SELECT rowid FROM player WHERE alias = '" + str(player) + "'"
+        ban_query = "UPDATE player SET suspended = 1 WHERE alias = '" + str(player) + "'"
+
+    cursor = my_db.cursor()
+    cursor.execute(check_query)
+    result = cursor.fetchone()
+    channel = await ctx.author.create_dm()
+
+    if result is not None:
+        cursor.execute(ban_query)
+        my_db.commit()
+        await channel.send("Successfully banned player " + str(player))
+    else:
+        await channel.send("Player was not found")
 
 
 @client.command()
-async def unban(ctx, wc3_name):
+async def unban(ctx, player):
     if await not_admin(ctx):
         return
-    cursor = my_db.cursor()
-    test = "SELECT rowid FROM player WHERE wc3_name = '" + str(wc3_name)+"'"
-    cursor.execute(test)
-    row = cursor.fetchone()
-    channel = await ctx.author.create_dm()
-    if row is not None:
-        query = "UPDATE player SET suspended = " + str(0) + " WHERE wc3_name = '" + str(wc3_name) + "'"
-        cursor.execute(query)
-        my_db.commit()
-        await channel.send("Successfully unbanned player " + str(wc3_name))
+
+    if is_mention_format(player):
+        discord_id = player[2:-1]
+        check_query = "SELECT rowid FROM player WHERE discord_id = '" + str(discord_id) + "'"
+        ban_query = "UPDATE player SET suspended = 0 WHERE discord_id = '" + str(discord_id) + "'"
+    elif is_warcraft_name_format(player):
+        check_query = "SELECT rowid FROM player WHERE wc3_name = '" + str(player) + "'"
+        ban_query = "UPDATE player SET suspended = 0 WHERE wc3_name = '" + str(player) + "'"
     else:
-        await channel.send("Player not found")
+        check_query = "SELECT rowid FROM player WHERE alias = '" + str(player) + "'"
+        ban_query = "UPDATE player SET suspended = 0 WHERE alias = '" + str(player) + "'"
+
+    cursor = my_db.cursor()
+    cursor.execute(check_query)
+    result = cursor.fetchone()
+    channel = await ctx.author.create_dm()
+
+    if result is not None:
+        cursor.execute(ban_query)
+        my_db.commit()
+        await channel.send("Successfully unbanned player " + str(player))
+    else:
+        await channel.send("Player was not found")
 
 
 @client.command()
-async def elo(ctx):
-    query = f"SELECT wc3_name,elo,elo_convergence FROM `player` WHERE `discord_id` = {ctx.author.id}"
+async def elo(ctx, player=None):
+    if player is None:
+        query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE discord_id = {ctx.author.id}"
+    elif is_mention_format(player):
+        discord_id = player[2:-1]
+        query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE discord_id = {discord_id}"
+    elif is_warcraft_name_format(player):
+        query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE wc3_name = '{player.lower()}'"
+    else:
+        query = f"SELECT wc3_name,elo,elo_convergence FROM player WHERE alias = '{player.lower()}'"
     cursor = my_db.cursor()
     cursor.execute(query)
-    row = cursor.fetchone()
-    if row is not None:
-        if row[1] is None:
-            await ctx.channel.send(f"User *{row[0]}* doesnt have an elo yet!"
+    result = cursor.fetchone()
+    if result is not None:
+        if result[1] is None:
+            await ctx.channel.send(f"User *{result[0]}* doesnt have an elo yet!"
                                    f" Play a game and upload the replay to get an elo attributed."
                                    " Only 3v3,4v4,5v5 and 6v6 games on the eligible map files will be parsed.")
             return
-        current_elo = disp_elo(row[1], row[2])
-        #  mmr = round(50 * row[1])  #  not displayed
-        await ctx.channel.send(f"Player **{row[0]}** has a current elo of **{current_elo}**")
+        current_elo = disp_elo(result[1], result[2])
+        await ctx.channel.send(f"Player **{result[0]}** has a current elo of **{current_elo}**")
     else:
-        await ctx.channel.send(f"Player **{ctx.author.name}** does not have a bnet account registered\ntry ?help add")
+        await ctx.channel.send(f"Player **{player}** does not have a bnet account registered\ntry ?help add")
 
 
 @client.command()
-async def allstats(ctx):
-    is_mention = False
-
-    for _ in ctx.message.mentions:
-        # get someone stats
-        is_mention = True
-        break
-    if is_mention:
-        player = ctx.message.mentions[0].name
-        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id =" \
-                f" {ctx.message.mentions[0].id}"
+async def allstats(ctx, player=None):
+    if player is None:
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {ctx.author.id}"
+    elif is_mention_format(player):
+        discord_id = player[2:-1]
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {discord_id}"
+    elif is_warcraft_name_format(player):
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE wc3_name = '{player.lower()}'"
     else:
-        player = ctx.author.nick
-        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id =" \
-                f" {ctx.author.id}"
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE alias = '{player.lower()}'"
     cursor = my_db.cursor()
     cursor.execute(query)
     result = cursor.fetchone()
@@ -263,7 +293,7 @@ async def allstats(ctx):
                          f"**Mean APM**: {mean_APM}\n**Average loot**: {MGB}\n" \
                          f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
-            embed = discord.Embed(title=player, description=stats_text, color=0x00ffad)
+            embed = discord.Embed(title=result[0], description=stats_text, color=0x00ffad)
             embed.set_author(name="All Stats")
             await ctx.send(embed=embed)
     else:
@@ -272,60 +302,52 @@ async def allstats(ctx):
 
 
 @client.command()
-async def stats(ctx, season=None):
+async def stats(ctx, player=None, season=None):
     if season is None:
         season = get_current_season()
-    is_mention = False
 
-    for _ in ctx.message.mentions:
-        # get someone stats
-        is_mention = True
-        player = ctx.message.mentions[0].name
-        break
-
-    if is_mention:
-        query = "SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = " + str(
-            ctx.message.mentions[0].id)
+    if player is None:
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {ctx.author.id}"
+    elif is_mention_format(player):
+        discord_id = player[2:-1]
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = {discord_id}"
+    elif is_warcraft_name_format(player):
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE wc3_name = '{player.lower()}'"
     else:
-        if ctx.author.nick is not None:
-            player = ctx.author.nick
-        else:
-            player = ctx.author.name
-        query = "SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE discord_id = " + str(
-            ctx.author.id)
+        query = f"SELECT wc3_name,alias,games_played,K,D,A,dodosfound FROM `player` WHERE alias = '{player.lower()}'"
     cursor = my_db.cursor()
     cursor.execute(query)
     result = cursor.fetchone()
 
     if result is not None:
         # update stats first
-        query = "SELECT SUM(1),SUM(win),SUM(kills),SUM(deaths),SUM(assists),SUM(APM)," \
+        stats_query = "SELECT SUM(1),SUM(win),SUM(kills),SUM(deaths),SUM(assists),SUM(APM)," \
                 "SUM(staypercent),SUM(creepkills),SUM(bounty),SUM(bountyfeed),SUM(goldgathered)," \
                 "SUM(dodosfound),SUM(chatcounter),SUM(kickcounter) FROM crossfire_stats WHERE game_id IN " \
                 "(SELECT game_id FROM crossfire_games WHERE valid = 1 AND season = " + str(season) + ") AND wc3_name = '" + \
                 result[0] + "'"
-        cursor.execute(query)
-        row = cursor.fetchone()
-        if row is not None:
-            total_games = row[0]
+        cursor.execute(stats_query)
+        stats_result = cursor.fetchone()
+        if stats_result is not None:
+            total_games = stats_result[0]
             if total_games == 0 or total_games is None:
                 await ctx.channel.send("Player is registered, but there is no data,"
                                        " play and upload an eligible game to get your stats!")
                 return
-            total_win = row[1]
+            total_win = stats_result[1]
             total_lose = total_games - total_win
-            total_kills = row[2]
-            total_death = row[3]
-            total_assist = row[4]
-            mean_APM = round(row[5] / total_games, 0)
-            mean_staypercent = round(row[6] / total_games, 0)
-            total_creepkill = row[7]
-            total_bounty = row[8]
-            total_bountyfeed = row[9]
-            total_goldgathered = row[10]
-            total_dodosfound = row[11]
-            total_chatcounter = row[12]
-            total_kickcounter = row[13]
+            total_kills = stats_result[2]
+            total_death = stats_result[3]
+            total_assist = stats_result[4]
+            mean_APM = round(stats_result[5] / total_games, 0)
+            mean_staypercent = round(stats_result[6] / total_games, 0)
+            total_creepkill = stats_result[7]
+            total_bounty = stats_result[8]
+            total_bountyfeed = stats_result[9]
+            total_goldgathered = stats_result[10]
+            total_dodosfound = stats_result[11]
+            total_chatcounter = stats_result[12]
+            total_kickcounter = stats_result[13]
             KD = round(total_kills / total_death, 2)
             mean_assist = round(total_assist / total_games, 2)
             win_percentage = round(100 * total_win / total_games, 0)
@@ -338,7 +360,7 @@ async def stats(ctx, season=None):
                          f"**Mean APM**: {mean_APM}\n**Average loot**: {MGB}\n" \
                          f"**Chat Counter**: {total_chatcounter}\n**Creep Kills**: {total_creepkill}"
 
-            embed = discord.Embed(title="Stats for this season", description=stats_text, color=0x00ffad)
+            embed = discord.Embed(title=f"{result[0]} (Season {season})", description=stats_text, color=0x00ffad)
             await ctx.send(embed=embed)
     else:
         # player isnt registered
@@ -347,17 +369,22 @@ async def stats(ctx, season=None):
 
 @client.command()
 async def add(ctx, wc3_name, alias=None):
-    global my_db
-    name = ctx.message.author
+    name = str(ctx.message.author).lower()
     discord_id = ctx.message.author.id
-    wc3_name = wc3_name.lower()
     if alias is None:
         alias = ""
     elif any(not c.isalnum() for c in alias):
         await ctx.channel.send("Aliases can only be alphanumeric")
         return
+    wc3_name = wc3_name.lower()
     alias = alias.lower()
-
+    # check if the wc3name is the discord id
+    if wc3_name == name.lower():
+        await ctx.send("Use your Wacraft3 name and not your discord name\nUse ?help add for more information")
+        return
+    if not is_warcraft_name_format(wc3_name):
+        await ctx.send("You are not using a Warcraft3 account. It needs to contain \"#XXXX\"")
+        return
     # check of database entry
     query = f"SELECT * FROM `player` WHERE `discord_id` = '{discord_id}'"
     cursor = my_db.cursor()
@@ -365,10 +392,6 @@ async def add(ctx, wc3_name, alias=None):
     result = cursor.fetchall()
     if len(result) > 0:
         await ctx.send("You already added an account.")
-        return
-    # check wc3name containing #
-    if "#" not in wc3_name:
-        await ctx.send("Warcraft Account needs to contain '#'")
         return
     # check of wc3name
     query = f"SELECT * FROM `player` WHERE `wc3_name` = '{wc3_name}' AND discord_id IS NOT NULL"
@@ -379,13 +402,14 @@ async def add(ctx, wc3_name, alias=None):
         await ctx.send(f"Warcraft Account: **{wc3_name}** is already added.")
         return
     # check for alias
-    query = f"SELECT * FROM `player` WHERE `alias` = '{alias}'"
-    cursor = my_db.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()
-    if len(result) > 0:
-        await ctx.send(f"Alias: **{alias}** is already added.")
-        return
+    if alias != "":
+        query = f"SELECT * FROM `player` WHERE `alias` = '{alias}'"
+        cursor = my_db.cursor()
+        cursor.execute(query)
+        result = cursor.fetchall()
+        if len(result) > 0:
+            await ctx.send(f"Alias: **{alias}** is already added.")
+            return
     if len(alias) > 0:
         query = f"INSERT INTO player (discord_id, wc3_name, alias,games_played,wins,bounty,bountyfeed,goldgathered,K,D,A,dodosfound,chatcounter,kickcounter) VALUES ({discord_id}, '{wc3_name}', '{alias}',0,0,0,0,0,0,0,0,0,0,0)" \
                 f" ON CONFLICT(wc3_name) DO" \
@@ -444,110 +468,104 @@ async def delete_account(ctx):
 async def balance(ctx, *players):
     ELO = []
 
-    # If all players are in the Elobot Voice channel
+    # TODO: If all players are in the Elobot Voice channel
     if len(players) == 0:
         print(client.get_channel(elo_bot_voicechat_id).members)
         return
 
-    if len(players) % 2 == 0:
-        if len(list(players)) != len(set(players)):
-            await ctx.send("Duplicate found")
-            return
-        for player in players:
-            # player is alias
-            if "#" in player:
-                # player is wc3name
-                player = player.lower()
-                query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player}'"
-                cursor = my_db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-                if result is not None:
-                    if result[2] != 0:
-                        await ctx.channel.send("Cannot balance this game : account " + player + " has been suspended")
-                        return
-                    ELO.append([player, trueenv.Rating(result[0], result[1])])
-                else:
-                    # using default ELO
-                    await ctx.send(f"**{player}** was not found, using fresh new player elo for that player")
-                    ELO.append([player, trueenv.Rating(start_elo, start_elo_convergence)])
-            elif "<@!" in player:
-                # mention
-                pass
-            else:
-                # alias
-                player = player.lower()
-                query = f"SELECT wc3_name,elo,elo_convergence,suspended FROM `player` WHERE `alias` = '{player}'"
-                cursor = my_db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-                if result is None:
-                    await ctx.send(f"**{player}** was not found, using fresh new player elo for that player")
+    if len(players) % 2 != 0:
+        await ctx.send("Enter a even number of players")
+        return
 
-                    ELO.append([player, trueenv.Rating(start_elo, start_elo_convergence)])
-                else:
-                    if result[3] != 0:
-                        await ctx.channel.send("Cannot balance this game : account " + result[0] + " has been suspended")
-                        return
-                    print(result)
-                    ELO.append([result[0], trueenv.Rating(result[1], result[2])])
+    if len(list(players)) != len(set(players)):
+        await ctx.send("Duplicate found")
+        return
 
-        for mention in ctx.message.mentions:
-            query = "SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = " + str(mention.id)
+    for player in players:
+
+        # player is wc3name
+        if is_warcraft_name_format(player):
+            query = f"SELECT elo,elo_convergence,suspended FROM `player` WHERE wc3_name = '{player.lower()}'"
             cursor = my_db.cursor()
             cursor.execute(query)
-            row = cursor.fetchone()
-            print(row)
-            if row is not None:
-                if row[3] != 0:
-                    await ctx.channel.send("Cannot balance this game : account " + row[2] + " has been suspended")
+            result = cursor.fetchone()
+            if result is not None:
+                if result[2] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + player + "** has been suspended")
                     return
-                ELO.append([row[2], trueenv.Rating(row[0], row[1])])
+                ELO.append([player, trueenv.Rating(result[0], result[1])])
             else:
-                await ctx.send(
-                    "player " + mention.display_name + " was not found, using fresh new player elo for that player")
-                ELO.append([mention.display_name, trueenv.Rating(start_elo, start_elo_convergence)])
+                await ctx.send(f"**{player}** was not found.")
+                return
 
-        # NOW BALANCE IT PROPERLY
+        # player is a mention
+        elif is_mention_format(player):
+            player_id = player[2:-1]
+            query = f"SELECT elo,elo_convergence,wc3_name,suspended FROM `player` WHERE discord_id = {player_id}"
+            cursor = my_db.cursor()
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result is not None:
+                if result[3] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + result[2] + "** has been suspended")
+                    return
+                ELO.append([result[2], trueenv.Rating(result[0], result[1])])
+            else:
+                await ctx.send(f"**{player}** was not found.")
+                return
 
-        score = []
-        nit = sum(1 for _ in combinations(ELO, int(len(ELO) / 2)))
-        i = 0
-        for team_a in combinations(ELO, int(len(ELO) / 2)):
-            i = i + 1
-            if i > nit / 2:
-                break
-            team_b = remove_from(ELO.copy(), team_a)
-            score.append([trueenv.quality([[item[1] for item in team_a], [item[1] for item in team_b]]),
-                          [item[0] for item in team_a], [item[0] for item in team_b], [item[1] for item in team_a],
-                          [item[1] for item in team_b]])
-
-        sorted_teams_by_score = sorted(score, key=balance_sorting_key, reverse=True)
-        best_team_a = sorted_teams_by_score[0][1]
-        best_team_b = sorted_teams_by_score[0][2]
-        elo_a = sorted_teams_by_score[0][3]
-        elo_b = sorted_teams_by_score[0][4]
-        northplayers = ""
-        southplayers = ""
-        i = 0
-        for player in best_team_a:
-            northplayers += f'- {player} (' + str(disp_elo(elo_a[i].mu, elo_a[i].sigma)) + ') -'
-            i = i + 1
-        i = 0
-        for player in best_team_b:
-            southplayers += f'- {player} (' + str(disp_elo(elo_b[i].mu, elo_b[i].sigma)) + ') -'
-            i = i + 1
-        NS = bool(random.randint(0, 1))
-        if NS:
-            await ctx.send(
-                f"```md\n<North>\n{northplayers}\n\n<South> \n{southplayers}\n\n"
-                f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
+        # treating everything else as alias
         else:
-            await ctx.send(
-                f"```md\n<North>\n{southplayers}\n\n<South> \n{northplayers}\n\n"
-                f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
+            query = f"SELECT wc3_name,elo,elo_convergence,suspended FROM `player` WHERE `alias` = '{player.lower()}'"
+            cursor = my_db.cursor()
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result is None:
+                await ctx.send(f"**{player}** was not found.")
+                return
+            else:
+                if result[3] != 0:
+                    await ctx.channel.send("Cannot balance this game. Account: **" + result[0] + "** has been suspended")
+                    return
+                ELO.append([result[0], trueenv.Rating(result[1], result[2])])
+
+    # NOW BALANCE IT PROPERLY
+    score = []
+    nit = sum(1 for _ in combinations(ELO, int(len(ELO) / 2)))
+    i = 0
+    for team_a in combinations(ELO, int(len(ELO) / 2)):
+        i = i + 1
+        if i > nit / 2:
+            break
+        team_b = remove_from(ELO.copy(), team_a)
+        score.append([trueenv.quality([[item[1] for item in team_a], [item[1] for item in team_b]]),
+                      [item[0] for item in team_a], [item[0] for item in team_b], [item[1] for item in team_a],
+                      [item[1] for item in team_b]])
+
+    sorted_teams_by_score = sorted(score, key=balance_sorting_key, reverse=True)
+    best_team_a = sorted_teams_by_score[0][1]
+    best_team_b = sorted_teams_by_score[0][2]
+    elo_a = sorted_teams_by_score[0][3]
+    elo_b = sorted_teams_by_score[0][4]
+    northplayers = ""
+    southplayers = ""
+    i = 0
+    for player in best_team_a:
+        northplayers += f'- {player} (' + str(disp_elo(elo_a[i].mu, elo_a[i].sigma)) + ') -'
+        i = i + 1
+    i = 0
+    for player in best_team_b:
+        southplayers += f'- {player} (' + str(disp_elo(elo_b[i].mu, elo_b[i].sigma)) + ') -'
+        i = i + 1
+    NS = bool(random.randint(0, 1))
+    if NS:
+        await ctx.send(
+            f"```md\n<North>\n{northplayers}\n\n<South> \n{southplayers}\n\n"
+            f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
     else:
-        await ctx.send("Enter a even number of players")
+        await ctx.send(
+            f"```md\n<North>\n{southplayers}\n\n<South> \n{northplayers}\n\n"
+            f"Match quality indicator : {sorted_teams_by_score[0][0]}```")
 
 
 def balance_sorting_key(elem):
@@ -638,7 +656,6 @@ async def draft(ctx, *players):
 @client.event
 async def on_ready():
     global upload_channel
-    global baseurl, leaderboard_channel_id
     global _guild
 
     print('Logged in as: "' + client.user.name + '" with user id: "' + str(client.user.id) + '"')
@@ -654,8 +671,6 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    global upload_channel_id
-
     if message.author == client.user:
         return
     if message.channel.id == upload_channel.id:
@@ -735,10 +750,10 @@ def disp_elo(player_elo, convergence):
 # ==============================================================================archi
 # ==============================================================================archi
 
-# TODO there is a decorator for this @role=admin or so
-async def not_admin(ctx):
+async def not_admin(ctx, display_message=True):
     if ctx.message.author.roles[-1] < _guild.get_role(admin_role_id) and ctx.message.author.id != 230018748491235339:
-        await ctx.channel.send(NO_POWER_MSG)
+        if display_message:
+            await ctx.channel.send(NO_POWER_MSG)
         return True
 
 
@@ -761,7 +776,6 @@ async def get_players_data(ctx):
     with open('output.csv', 'r', encoding='utf-8') as player_data_file:
         await ctx.channel.send("here you are", file=discord.File(player_data_file.name))
         os.remove("output.csv")
-        # str(datetime.datetime.now()) + "_bscf-elo-players"
 
 
 @client.command()
@@ -786,7 +800,6 @@ async def get_players_history(ctx, wc3_tag=None):
     with open('output.csv', 'r', encoding='utf-8') as player_history_file:
         await ctx.channel.send("here you are", file=discord.File(player_history_file.name))
         os.remove("output.csv")
-        # str(datetime.datetime.now()) + "_bscf-elo-players"
 
 
 @client.command()
@@ -822,7 +835,8 @@ async def maps(ctx):
     while row is not None:
         msg = msg + f"**Map file**\nwc3stats_key = {row[0]}\nfilename = {row[1]}\nhash = {row[3]}\n"
         row = cursor.fetchone()
-
+    if msg == "":
+        msg = "No active maps"
     await ctx.channel.send(msg)
 
 
@@ -853,8 +867,6 @@ async def remove_map(ctx, wc3stats_map_checksum):
 
 
 async def post_replay(replay):
-    global baseurl
-
     file_dic = {
         "file": replay,
     }
@@ -1251,4 +1263,4 @@ async def update_draft(draft_message, players, north_team, south_team, north_cap
     await draft_message.edit(embed=embed)
 
 
-client.run(token)
+client.run(TOKEN)
